@@ -9,6 +9,12 @@
 //
 // ===----------------------------------------------------------------------===//
 
+// Windows has no Kernel.Event.Source (epoll/kqueue vocabulary; the target
+// is !os(Windows)); this wrapper and its only consumer (Kernel.Thread
+// .Executor.Polling) gate together. The IOCP analog arrives with the
+// completion-port wait primitive.
+#if !os(Windows)
+
 public import Executor_Primitives
 public import Kernel
 
@@ -69,3 +75,5 @@ extension Executor.Wait.Event.Source {
     }
 }
 
+
+#endif
