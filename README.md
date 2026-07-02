@@ -21,9 +21,11 @@ Executor composition for Swift. Provides sharded executor pools for parallel wor
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/coenttb/swift-executors.git", from: "0.1.0")
+    .package(url: "https://github.com/swift-foundations/swift-executors.git", branch: "main")
 ]
 ```
+
+> Pre-1.0: no version tags yet. APIs may change; pin a commit for reproducible builds.
 
 ### Target dependency
 
@@ -86,11 +88,11 @@ swift-kernel-primitives  <-- Syscall vocabulary
 
 ### Dependencies
 
-- [swift-kernel](https://github.com/coenttb/swift-kernel): Serial executors backed by dedicated OS threads
+- [swift-kernel](https://github.com/swift-foundations/swift-kernel): Serial executors backed by dedicated OS threads
 
 ### Used By
 
-- [swift-io](https://github.com/coenttb/swift-io): Async I/O executor with typed throws
+- [swift-io](https://github.com/swift-foundations/swift-io): Async I/O executor with typed throws
 
 ---
 
