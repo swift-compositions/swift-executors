@@ -3,10 +3,10 @@
 //  swift-executors
 //
 
+import Kernel_Test_Support
 import Testing
 
 @testable import Executors
-import Kernel_Test_Support
 
 extension Kernel.Thread.Executor {
     enum Test {

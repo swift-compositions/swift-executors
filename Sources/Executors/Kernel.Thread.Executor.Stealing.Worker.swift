@@ -47,7 +47,7 @@ extension Kernel.Thread.Executor.Stealing {
             self.deque = .init(capacity: 1024)
             self.wait = .init()
             // XorShift32 requires non-zero state; OR with 1 guarantees it.
-            self.rngState = UInt32(truncatingIfNeeded: id.ordinal.rawValue) &+ 0x9E3779B9
+            self.rngState = UInt32(truncatingIfNeeded: id.ordinal.rawValue) &+ 0x9E37_79B9
             if self.rngState == 0 { self.rngState = 1 }
         }
     }

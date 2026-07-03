@@ -9,8 +9,8 @@
 //
 // ===----------------------------------------------------------------------===//
 
-import Testing
 import Executors
+import Testing
 
 // Executor.Wait.Event.Source requires a Kernel.Event.Driver (L2/L3) to
 // construct. No test factory exists at L1. Lifecycle and behavioral
@@ -18,7 +18,6 @@ import Executors
 // (Phase 2) and swift-io (Phase 3).
 //
 // This file validates type availability and namespace structure.
-
 
 @Suite
 struct WaitEventSourceTests {
@@ -29,4 +28,3 @@ struct WaitEventSourceTests {
         _ = Executor.Wait.Event.self
     }
 }
-

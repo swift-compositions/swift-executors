@@ -108,13 +108,14 @@ extension Kernel.Thread.Executor {
         if runInline {
             switch mode {
             case .serial:
-                unsafe Kernel.Thread.Executor.runJob(
+                unsafe Self.runJob(
                     job,
                     onSerial: asUnownedSerialExecutor(),
                     priorityTracking: priorityTracking
                 )
+
             case .task:
-                unsafe Kernel.Thread.Executor.runJob(
+                unsafe Self.runJob(
                     job,
                     onTask: asUnownedTaskExecutor(),
                     priorityTracking: priorityTracking
@@ -179,13 +180,14 @@ extension Kernel.Thread.Executor {
             guard let job else { return }
             switch mode {
             case .serial:
-                unsafe Kernel.Thread.Executor.runJob(
+                unsafe Self.runJob(
                     job,
                     onSerial: asUnownedSerialExecutor(),
                     priorityTracking: priorityTracking
                 )
+
             case .task:
-                unsafe Kernel.Thread.Executor.runJob(
+                unsafe Self.runJob(
                     job,
                     onTask: asUnownedTaskExecutor(),
                     priorityTracking: priorityTracking

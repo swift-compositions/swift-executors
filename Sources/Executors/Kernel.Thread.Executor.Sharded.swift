@@ -5,10 +5,10 @@
 //  Created by Coen ten Thije Boonkkamp on 28/12/2025.
 //
 
-import Synchronization
+import CPU_Primitives
 import Index_Primitives
 import Ordinal_Primitives
-import CPU_Primitives
+import Synchronization
 
 extension Kernel.Thread.Executor {
     /// A sharded pool of serial executors for parallel work dispatch.

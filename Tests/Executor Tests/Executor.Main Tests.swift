@@ -3,8 +3,8 @@
 //  swift-executors
 //
 
-import Testing
 import Executors
+import Testing
 
 @Suite
 struct MainTests {

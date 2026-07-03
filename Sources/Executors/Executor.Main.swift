@@ -4,7 +4,7 @@
 //
 
 #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
-import Dispatch
+    import Dispatch
 #endif
 
 extension Executor {
@@ -48,30 +48,30 @@ extension Executor {
     ///   `Executor.Main.shared`.
     public final class Main: SerialExecutor, @unsafe @unchecked Sendable {
         #if !(os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS))
-        private var jobs: Executor.Job.Queue
-        private var drainBuffer: Executor.Job.Queue
-        // ⚠️ W5 QUARANTINE (2026-06-12): sympathetic consumer carve — the producer
-        // parked Executor Job Priority Primitives (Job.Priority stores Heap<Entry>;
-        // heap's umbrella pulls the RED memory-small module; see executor-primitives
-        // Package.swift:33). Carved per Ruling 2 / lane-λ in
-        // .handoffs/HANDOFF-sockets-restoration-kernel-blocker.md.
-        // Restore with heap's round.
-        // private var scheduled: Executor.Job.Priority
-        private let wait: Executor.Wait.Condvar
-        private let _shutdown: Executor.Shutdown.Flag
-        private var _stopped: Bool
-        private var _isRunning: Bool
+            private var jobs: Executor.Job.Queue
+            private var drainBuffer: Executor.Job.Queue
+            // ⚠️ W5 QUARANTINE (2026-06-12): sympathetic consumer carve — the producer
+            // parked Executor Job Priority Primitives (Job.Priority stores Heap<Entry>;
+            // heap's umbrella pulls the RED memory-small module; see executor-primitives
+            // Package.swift:33). Carved per Ruling 2 / lane-λ in
+            // .handoffs/HANDOFF-sockets-restoration-kernel-blocker.md.
+            // Restore with heap's round.
+            // private var scheduled: Executor.Job.Priority
+            private let wait: Executor.Wait.Condvar
+            private let _shutdown: Executor.Shutdown.Flag
+            private var _stopped: Bool
+            private var _isRunning: Bool
         #endif
 
         private init() {
             #if !(os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS))
-            self.jobs = .init()
-            self.drainBuffer = .init()
-            // self.scheduled = .init()  // W5 QUARANTINE (2026-06-12): Job.Priority parked upstream — restore with heap's round
-            self.wait = .init()
-            self._shutdown = .init()
-            self._stopped = false
-            self._isRunning = false
+                self.jobs = .init()
+                self.drainBuffer = .init()
+                // self.scheduled = .init()  // W5 QUARANTINE (2026-06-12): Job.Priority parked upstream — restore with heap's round
+                self.wait = .init()
+                self._shutdown = .init()
+                self._stopped = false
+                self._isRunning = false
             #endif
         }
     }
@@ -90,14 +90,14 @@ extension Executor.Main {
     public func enqueue(_ job: consuming ExecutorJob) {
         let unowned = UnownedJob(job)
         #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
-        DispatchQueue.main.async {
-            unsafe unowned.runSynchronously(
-                on: self.asUnownedSerialExecutor()
-            )
-        }
+            DispatchQueue.main.async {
+                unsafe unowned.runSynchronously(
+                    on: self.asUnownedSerialExecutor()
+                )
+            }
         #else
-        wait.withLock { jobs.enqueue(unowned) }
-        wait.wake()
+            wait.withLock { jobs.enqueue(unowned) }
+            wait.wake()
         #endif
     }
 
@@ -109,95 +109,95 @@ extension Executor.Main {
 // MARK: - Main Loop (Linux/Windows)
 
 #if !(os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS))
-extension Executor.Main {
-    /// Drive the main pump on the calling thread.
-    ///
-    /// Blocks until `shutdown()` or `stop()` is called. Same donation
-    /// contract as `Executor.Cooperative` — see that type's docstring.
-    ///
-    /// - Important: Must be called from the main thread.
-    public func run() {
-        runUntil { false }
-    }
+    extension Executor.Main {
+        /// Drive the main pump on the calling thread.
+        ///
+        /// Blocks until `shutdown()` or `stop()` is called. Same donation
+        /// contract as `Executor.Cooperative` — see that type's docstring.
+        ///
+        /// - Important: Must be called from the main thread.
+        public func run() {
+            runUntil { false }
+        }
 
-    /// Drive the main pump until a condition is satisfied.
-    ///
-    /// Same snapshot-then-check drain as `Executor.Cooperative.runUntil`.
-    ///
-    /// - Precondition: Must not be called while another `run()` or
-    ///   `runUntil` is active (re-entrancy prohibited).
-    public func runUntil(_ condition: () -> Bool) {
-        precondition(!_isRunning, "nested runUntil is not supported")
-        _isRunning = true
-        wait.withLock { _stopped = false }
-        defer { _isRunning = false }
+        /// Drive the main pump until a condition is satisfied.
+        ///
+        /// Same snapshot-then-check drain as `Executor.Cooperative.runUntil`.
+        ///
+        /// - Precondition: Must not be called while another `run()` or
+        ///   `runUntil` is active (re-entrancy prohibited).
+        public func runUntil(_ condition: () -> Bool) {
+            precondition(!_isRunning, "nested runUntil is not supported")
+            _isRunning = true
+            wait.withLock { _stopped = false }
+            defer { _isRunning = false }
 
-        while !_shutdown.isSet {
-            if condition() { return }
+            while !_shutdown.isSet {
+                if condition() { return }
 
-            let shouldExit = wait.withLock { () -> Bool in
-                // W5 QUARANTINE (2026-06-12): Job.Priority parked upstream — scheduled-drain +
-                // deadline-wait carved; with `enqueue(_:after:)` carved the queue was always
-                // empty, so the bare wait below was already the only live path. Restore with
-                // heap's round.
-                // scheduled.drain(now: Clock.Continuous.now) { jobs.enqueue($0) }
+                let shouldExit = wait.withLock { () -> Bool in
+                    // W5 QUARANTINE (2026-06-12): Job.Priority parked upstream — scheduled-drain +
+                    // deadline-wait carved; with `enqueue(_:after:)` carved the queue was always
+                    // empty, so the bare wait below was already the only live path. Restore with
+                    // heap's round.
+                    // scheduled.drain(now: Clock.Continuous.now) { jobs.enqueue($0) }
 
-                while jobs.isEmpty && !_shutdown.isSet && !_stopped {
-                    // if let nextDeadline = scheduled.peek {
-                    //     let remaining = Clock.Continuous.now.duration(to: nextDeadline)
-                    //     if remaining <= .zero {
-                    //         scheduled.drain(now: Clock.Continuous.now) { jobs.enqueue($0) }
-                    //         continue
-                    //     }
-                    //     _ = wait.wait(timeout: remaining)
-                    //     scheduled.drain(now: Clock.Continuous.now) { jobs.enqueue($0) }
-                    // } else {
+                    while jobs.isEmpty && !_shutdown.isSet && !_stopped {
+                        // if let nextDeadline = scheduled.peek {
+                        //     let remaining = Clock.Continuous.now.duration(to: nextDeadline)
+                        //     if remaining <= .zero {
+                        //         scheduled.drain(now: Clock.Continuous.now) { jobs.enqueue($0) }
+                        //         continue
+                        //     }
+                        //     _ = wait.wait(timeout: remaining)
+                        //     scheduled.drain(now: Clock.Continuous.now) { jobs.enqueue($0) }
+                        // } else {
                         wait.wait()
-                    // }
+                        // }
+                    }
+                    if _stopped || _shutdown.isSet { return true }
+                    swap(&jobs, &drainBuffer)
+                    return false
                 }
-                if _stopped || _shutdown.isSet { return true }
-                swap(&jobs, &drainBuffer)
-                return false
-            }
 
-            if shouldExit { return }
+                if shouldExit { return }
 
-            while let job = drainBuffer.dequeue() {
-                unsafe job.runSynchronously(on: asUnownedSerialExecutor())
+                while let job = drainBuffer.dequeue() {
+                    unsafe job.runSynchronously(on: asUnownedSerialExecutor())
+                }
             }
         }
+
+        /// Signal the innermost `run()` or `runUntil` to return.
+        ///
+        /// Non-destructive: the executor remains usable after `stop()`.
+        public func stop() {
+            wait.withLock { _stopped = true }
+            wait.wake.all()
+        }
+
+        // ⚠️ W5 QUARANTINE (2026-06-12): sympathetic consumer carve — the producer
+        // parked Executor Job Priority Primitives (Job.Priority stores Heap<Entry>;
+        // heap's umbrella pulls the RED memory-small module; see executor-primitives
+        // Package.swift:33). Carved per Ruling 2 / lane-λ in
+        // .handoffs/HANDOFF-sockets-restoration-kernel-blocker.md.
+        // Restore with heap's round.
+
+        // /// Schedule a job for execution at a future deadline.
+        // public func enqueue(
+        //     _ job: consuming ExecutorJob,
+        //     after delay: Duration
+        // ) {
+        //     let deadline = Clock.Continuous.now.advanced(by: delay)
+        //     let unowned = UnownedJob(job)
+        //     wait.withLock { scheduled.schedule(unowned, at: deadline) }
+        //     wait.wake()
+        // }
+
+        /// Signal the main pump to exit permanently.
+        public func shutdown() {
+            _shutdown.set()
+            wait.wake.all()
+        }
     }
-
-    /// Signal the innermost `run()` or `runUntil` to return.
-    ///
-    /// Non-destructive: the executor remains usable after `stop()`.
-    public func stop() {
-        wait.withLock { _stopped = true }
-        wait.wake.all()
-    }
-
-    // ⚠️ W5 QUARANTINE (2026-06-12): sympathetic consumer carve — the producer
-    // parked Executor Job Priority Primitives (Job.Priority stores Heap<Entry>;
-    // heap's umbrella pulls the RED memory-small module; see executor-primitives
-    // Package.swift:33). Carved per Ruling 2 / lane-λ in
-    // .handoffs/HANDOFF-sockets-restoration-kernel-blocker.md.
-    // Restore with heap's round.
-
-    // /// Schedule a job for execution at a future deadline.
-    // public func enqueue(
-    //     _ job: consuming ExecutorJob,
-    //     after delay: Duration
-    // ) {
-    //     let deadline = Clock.Continuous.now.advanced(by: delay)
-    //     let unowned = UnownedJob(job)
-    //     wait.withLock { scheduled.schedule(unowned, at: deadline) }
-    //     wait.wake()
-    // }
-
-    /// Signal the main pump to exit permanently.
-    public func shutdown() {
-        _shutdown.set()
-        wait.wake.all()
-    }
-}
 #endif

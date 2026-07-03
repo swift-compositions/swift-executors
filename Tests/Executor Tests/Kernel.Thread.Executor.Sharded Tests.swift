@@ -3,10 +3,10 @@
 //  swift-executors
 //
 
+import Kernel_Test_Support
 import Testing
 
 @testable import Executors
-import Kernel_Test_Support
 
 extension Kernel.Thread.Executor.Sharded {
     enum Test {
@@ -87,7 +87,6 @@ extension Kernel.Thread.Executor.Sharded.Test.Unit {
         pool.shutdown()
     }
 }
-
 
 // MARK: - Isolation Verification
 

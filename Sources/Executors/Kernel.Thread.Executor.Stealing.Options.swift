@@ -31,7 +31,8 @@ extension Kernel.Thread.Executor.Stealing {
             count: Kernel.Thread.Count? = nil,
             priorityTracking: Bool = false
         ) {
-            self.count = count
+            self.count =
+                count
                 ?? Kernel.Thread.Count.min(
                     Self.defaultCount,
                     System.Processor.count.retag(Kernel.Thread.self)
@@ -42,5 +43,5 @@ extension Kernel.Thread.Executor.Stealing {
 }
 
 extension Kernel.Thread.Executor.Stealing.Options {
-    private static let defaultCount: Kernel.Thread.Count = try! .init(4)
+    private static let defaultCount: Kernel.Thread.Count = 4
 }

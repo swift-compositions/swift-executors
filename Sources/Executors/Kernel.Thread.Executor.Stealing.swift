@@ -3,9 +3,9 @@
 //  swift-executors
 //
 
-import Synchronization
 import Index_Primitives
 import Ordinal_Primitives
+import Synchronization
 
 extension Kernel.Thread.Executor {
     /// N-owned-threads with per-thread deques and work-stealing.

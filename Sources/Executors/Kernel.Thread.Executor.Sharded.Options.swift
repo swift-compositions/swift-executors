@@ -52,5 +52,5 @@ extension Kernel.Thread.Executor.Sharded {
 }
 
 extension Kernel.Thread.Executor.Sharded.Options {
-    private static let defaultCount: Kernel.Thread.Count = try! .init(4)
+    private static let defaultCount: Kernel.Thread.Count = 4
 }
