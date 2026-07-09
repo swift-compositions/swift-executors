@@ -19,12 +19,14 @@ import Testing
 //
 // This file validates type availability and namespace structure.
 
-@Suite
-struct WaitEventSourceTests {
+extension Executor.Wait.Event.Source {
+    @Suite
+    struct Test {
 
-    @Test
-    func `Wait.Event namespace exists`() {
-        // Compile-time validation: the namespace enum is reachable.
-        _ = Executor.Wait.Event.self
+        @Test
+        func `Wait.Event namespace exists`() {
+            // Compile-time validation: the namespace enum is reachable.
+            _ = Executor.Wait.Event.self
+        }
     }
 }

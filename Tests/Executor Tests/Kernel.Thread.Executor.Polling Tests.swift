@@ -12,12 +12,14 @@ import Testing
 
 #if !os(Windows)
 
-    @Suite
-    struct PollingTests {
-        @Test
-        func `Polling.Outcome enum exists`() {
-            _ = Kernel.Thread.Executor.Polling.Outcome.continue
-            _ = Kernel.Thread.Executor.Polling.Outcome.halt
+    extension Kernel.Thread.Executor.Polling {
+        @Suite
+        struct Test {
+            @Test
+            func `Polling.Outcome enum exists`() {
+                _ = Kernel.Thread.Executor.Polling.Outcome.continue
+                _ = Kernel.Thread.Executor.Polling.Outcome.halt
+            }
         }
     }
 
