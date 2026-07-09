@@ -17,14 +17,16 @@ extension Executor.Cooperative {
 /// Actor pinned to a cooperative executor for enqueue-via-actor tests.
 private actor Cooperator {
     nonisolated let cooperative: Executor.Cooperative
-    nonisolated var unownedExecutor: UnownedSerialExecutor {
-        cooperative.asUnownedSerialExecutor()
-    }
-
     var value: Int = 0
 
     init(_ cooperative: Executor.Cooperative) {
         self.cooperative = cooperative
+    }
+}
+
+extension Cooperator {
+    nonisolated var unownedExecutor: UnownedSerialExecutor {
+        cooperative.asUnownedSerialExecutor()
     }
 
     func increment() { value += 1 }
