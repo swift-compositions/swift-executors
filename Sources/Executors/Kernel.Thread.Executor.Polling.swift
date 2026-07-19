@@ -44,6 +44,18 @@
         /// dispatches actor jobs. Domain state touched by tick is single-threaded.
         /// See research doc V5.
         ///
+        /// ## Teardown Contract
+        ///
+        /// Applies the `Kernel.Thread.Executor` Teardown Contract: `enqueue`
+        /// keys inline-vs-queue on `_loopExited`, not `_shutdown`. The
+        /// terminal `drainJobs()` call (made once, after the run loop's
+        /// `while !_shutdown.isSet` breaks) publishes `_loopExited` in the
+        /// SAME `queueLock` critical section as the empty-queue observation
+        /// that ends it, so a job enqueued while that terminal drain is
+        /// still finding work is guaranteed to be picked up by it, and one
+        /// enqueued after it has verifiably finished draining runs inline
+        /// with no executor-thread concurrency possible.
+        ///
         /// ## Safety Invariant
         ///
         /// This type is `Sendable` by virtue of internal synchronization. Cross-
@@ -52,6 +64,9 @@
         ///   Every `enqueue` / `drainJobs` operation serializes through
         ///   `queueLock.withLock`.
         /// - `_shutdown` : atomic `Shutdown.Flag`.
+        /// - `_loopExited` : `Bool`, guarded by `queueLock`; published only in
+        ///   the terminal `drainJobs()` call's critical section. See
+        ///   ``Teardown Contract``.
         /// - `waitSource` : the kernel event source's wakeup channel is MPSC-safe
         ///   by construction (POSIX `eventfd` / kqueue-signal equivalents); reads
         ///   of the event buffer happen exclusively on the executor's own thread
@@ -94,6 +109,11 @@
             private let queueLock: Kernel.Thread.Mutex
             private var waitSource: Executor_Primitives.Executor.Wait.Event.Source
             private let _shutdown: Executor_Primitives.Executor.Shutdown.Flag
+            /// `true` once the terminal `drainJobs()` call (made after the
+            /// run loop's `while` breaks) has observed the queue empty.
+            /// Guarded by `queueLock`; published in that same critical
+            /// section. See ``Teardown Contract``.
+            private var _loopExited: Bool
             private var threadHandle: Kernel.Thread.Handle?
             private let maxEventsPerPoll: Int
             private let priorityTracking: Bool
@@ -137,6 +157,7 @@
                 self.queueLock = .init()
                 self.waitSource = .init(source: consume source)
                 self._shutdown = .init()
+                self._loopExited = false
                 self.maxEventsPerPoll = maxEventsPerPoll
                 self.priorityTracking = priorityTracking
                 unsafe (self.tick = tick)
@@ -155,8 +176,12 @@
         }
 
         public func enqueue(_ job: UnownedJob) {
+            // Teardown Contract (see the type's documentation): queue
+            // whenever the terminal drain has not yet verifiably exited --
+            // even mid-shutdown, the executor thread still executes queued
+            // jobs. Run inline only once the loop has verifiably exited.
             let runInline: Bool = queueLock.withLock {
-                guard !_shutdown.isSet else { return true }
+                guard !_loopExited else { return true }
                 jobs.enqueue(job)
                 return false
             }
@@ -284,13 +309,28 @@
                     break
                 }
             }
-            drainJobs()
+            // Terminal drain: this is the LAST time this thread will ever
+            // execute a job (runLoop returns right after). Publish
+            // `_loopExited` in the same critical section as the empty-queue
+            // observation that ends it -- see the Teardown Contract.
+            drainJobs(publishLoopExitedIfEmpty: true)
         }
 
-        private func drainJobs() {
+        private func drainJobs(publishLoopExitedIfEmpty: Bool = false) {
             while true {
-                queueLock.withLock { jobs.drain(into: &drainBuffer) }
-                guard !drainBuffer.isEmpty else { return }
+                let isEmpty: Bool = queueLock.withLock {
+                    jobs.drain(into: &drainBuffer)
+                    if publishLoopExitedIfEmpty && drainBuffer.isEmpty {
+                        // Teardown Contract: an enqueue serialized before
+                        // this critical section left its job in `jobs`
+                        // (found non-empty, another iteration runs it); one
+                        // serialized after observes `_loopExited` and runs
+                        // inline once this function (and runLoop) returns.
+                        _loopExited = true
+                    }
+                    return drainBuffer.isEmpty
+                }
+                guard !isEmpty else { return }
                 while let job = drainBuffer.dequeue() {
                     unsafe Kernel.Thread.Executor.runJob(
                         job,
