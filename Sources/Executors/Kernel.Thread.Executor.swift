@@ -14,8 +14,9 @@ extension Kernel.Thread {
     /// ## Safety Invariant
     ///
     /// This type is `Sendable` by virtue of internal synchronization: the job
-    /// queue (`jobs`), the shutdown flag (`_shutdown`), and the stored thread
-    /// handle (`threadHandle`) are all mutated exclusively under
+    /// queue (`jobs`), the shutdown flag (`_shutdown`), the loop-exited flag
+    /// (`_loopExited`), and the stored thread handle (`threadHandle`) are all
+    /// mutated exclusively under
     /// `wait: Executor.Wait.Condvar` -- a mutex + condition variable wrapper.
     /// `enqueue`, `runLoop`, and `shutdown` each route their state accesses
     /// through `wait.withLock`, and cross-thread wake-ups go through
@@ -23,6 +24,31 @@ extension Kernel.Thread {
     /// executor only through its public API (`enqueue`, `shutdown`, the
     /// unowned-executor accessors); reaching into the stored state otherwise
     /// is undefined behaviour.
+    ///
+    /// ## Teardown Contract
+    ///
+    /// The canonical teardown contract for every executor family in this
+    /// package. `Sharded` inherits it per shard; `Stealing` applies it per
+    /// worker; `Cooperative` documents its own variant (it owns no thread
+    /// that could drain after shutdown).
+    ///
+    /// - `enqueue` and run-loop exit serialize under the executor's lock.
+    /// - While the run loop has not yet exited -- including the drain window
+    ///   after `shutdown()` is signalled -- enqueued jobs join the queue and
+    ///   are executed by the executor's own thread, preserving serial
+    ///   execution.
+    /// - Only once the run loop has verifiably exited (`_loopExited`, set in
+    ///   the same critical section that decides loop exit) does `enqueue`
+    ///   run the job inline on the calling thread: the executor thread can
+    ///   no longer execute anything, so no executor-thread concurrency is
+    ///   possible.
+    /// - Post-exit inline execution serializes only against the (gone)
+    ///   executor thread, not between concurrent post-exit callers.
+    ///   Post-shutdown enqueue is outside the supported lifecycle
+    ///   (`shutdown()` is meant to be the executor's final act); inline
+    ///   execution is a non-destructive best effort so late jobs make
+    ///   progress instead of hanging their awaiters, not a serial-ordering
+    ///   guarantee.
     ///
     /// ## Intended Use
     ///
@@ -57,6 +83,11 @@ extension Kernel.Thread {
         private let wait: Executor_Primitives.Executor.Wait.Condvar
         private var jobs: Executor_Primitives.Executor.Job.Queue
         private let _shutdown: Executor_Primitives.Executor.Shutdown.Flag
+        /// `true` once `runLoop()` has taken its exit path. Guarded by
+        /// `wait`; set in the same critical section that decides loop exit
+        /// so `enqueue` can never observe "shutting down" while the loop
+        /// might still execute jobs. See ``Teardown Contract``.
+        private var _loopExited: Bool
         private var threadHandle: Kernel.Thread.Handle?
 
         /// Creates a new executor thread.
@@ -78,6 +109,7 @@ extension Kernel.Thread {
             self.wait = .init()
             self.jobs = .init()
             self._shutdown = .init()
+            self._loopExited = false
 
             self.threadHandle = unsafe Kernel.Thread.trap(Ownership.Transfer.Retained<Kernel.Thread.Executor>.Outgoing(self)) { retained in
                 let executor = retained.consume()
@@ -100,8 +132,12 @@ extension Kernel.Thread {
 
 extension Kernel.Thread.Executor {
     public func enqueue(_ job: UnownedJob) {
+        // Teardown Contract (see the type's documentation): queue whenever
+        // the run loop has not yet exited -- even mid-shutdown-drain, the
+        // executor thread still executes queued jobs, preserving serial
+        // execution. Run inline only once the loop has verifiably exited.
         let runInline: Bool = wait.withLock {
-            guard !_shutdown.isSet else { return true }
+            guard !_loopExited else { return true }
             jobs.enqueue(job)
             return false
         }
@@ -174,7 +210,16 @@ extension Kernel.Thread.Executor {
                 while jobs.isEmpty && !_shutdown.isSet {
                     wait.wait()
                 }
-                guard !_shutdown.isSet || !jobs.isEmpty else { return nil }
+                guard !_shutdown.isSet || !jobs.isEmpty else {
+                    // Teardown Contract: publish loop exit in the SAME
+                    // critical section that decides it. An enqueue
+                    // serialized before this section put its job in the
+                    // queue (observed non-empty above); one serialized
+                    // after sees `_loopExited` and runs inline. No window
+                    // exists in which a job can be queued yet never run.
+                    _loopExited = true
+                    return nil
+                }
                 return jobs.dequeue()
             }
             guard let job else { return }

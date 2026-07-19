@@ -120,7 +120,7 @@ extension Kernel.Thread.Executor.Test.EdgeCase {
         let overlapObserved = concurrentExecutionDetected.withLock { $0 }
 
         harness.update { $0.releaseJob1 = true }
-        _ = shutdownThread.join()
+        shutdownThread.join()
 
         #expect(overlapObserved == false)
     }
