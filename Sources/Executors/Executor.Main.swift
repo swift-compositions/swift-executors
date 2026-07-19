@@ -96,8 +96,25 @@ extension Executor.Main {
                 )
             }
         #else
-            wait.withLock { jobs.enqueue(unowned) }
-            wait.wake()
+            let accepted: Bool = wait.withLock {
+                guard !_shutdown.isSet else { return false }
+                jobs.enqueue(unowned)
+                return true
+            }
+            if accepted {
+                wait.wake()
+                return
+            }
+            // Cooperative variant of the `Kernel.Thread.Executor` Teardown
+            // Contract: after `shutdown()` no thread can ever run this job
+            // -- `run()`/`runUntil` never execute again, and running inline
+            // on the enqueuing thread would violate the donation contract
+            // (all execution happens on the donated thread). The job is
+            // abandoned: its continuation never resumes. Loud in debug
+            // builds; the documented silent drop in release.
+            assertionFailure(
+                "Executor.Main.enqueue(_:) after shutdown(): job abandoned — its continuation will never resume"
+            )
         #endif
     }
 
@@ -195,6 +212,14 @@ extension Executor.Main {
         // }
 
         /// Signal the main pump to exit permanently.
+        ///
+        /// Irreversible. Jobs enqueued after shutdown begins are abandoned:
+        /// they are dropped without ever executing, so any continuation
+        /// awaiting them never resumes. Debug builds assert on such an
+        /// enqueue; release builds drop silently (the Cooperative variant
+        /// of the `Kernel.Thread.Executor` Teardown Contract — there is no
+        /// pump left to drain to, and running inline on the enqueuing
+        /// thread would violate the donation contract).
         public func shutdown() {
             _shutdown.set()
             wait.wake.all()
