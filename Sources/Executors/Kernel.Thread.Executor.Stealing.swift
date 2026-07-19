@@ -50,6 +50,11 @@ extension Kernel.Thread.Executor {
     ///
     /// ## Lifecycle
     /// Call `shutdown()` before deallocation. Must not be called from a worker thread.
+    ///
+    /// Teardown follows the `Kernel.Thread.Executor` Teardown Contract,
+    /// applied per worker: jobs enqueued while a worker is still draining
+    /// are executed by that worker's thread; a job routed to a worker whose
+    /// run loop has fully exited runs inline on the enqueuing thread.
     public final class Stealing: TaskExecutor, @unsafe @unchecked Sendable {
         internal let workers: [Worker]
         internal let _shutdown: Executor_Primitives.Executor.Shutdown.Flag
@@ -80,7 +85,18 @@ extension Kernel.Thread.Executor.Stealing {
     }
 
     public func enqueue(_ job: UnownedJob) {
-        workers[cursor.advance(within: count)].enqueue(job)
+        if workers[cursor.advance(within: count)].enqueue(job) { return }
+        // Teardown Contract (see `Kernel.Thread.Executor`): the selected
+        // worker's run loop has fully exited post-shutdown, so no pool
+        // thread can ever execute this job -- run it inline on the caller
+        // instead of stranding it (and hanging its awaiter) on a dead
+        // worker's deque. A TaskExecutor makes no serial-ordering promise,
+        // so inline execution violates no invariant.
+        unsafe Kernel.Thread.Executor.runJob(
+            job,
+            onTask: asUnownedTaskExecutor(),
+            priorityTracking: priorityTracking
+        )
     }
 
     public func asUnownedTaskExecutor() -> UnownedTaskExecutor {

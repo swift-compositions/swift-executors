@@ -101,8 +101,25 @@ extension Executor.Cooperative {
     }
 
     public func enqueue(_ job: UnownedJob) {
-        wait.withLock { jobs.enqueue(job) }
-        wait.wake()
+        let accepted: Bool = wait.withLock {
+            guard !_shutdown.isSet else { return false }
+            jobs.enqueue(job)
+            return true
+        }
+        if accepted {
+            wait.wake()
+            return
+        }
+        // Cooperative variant of the `Kernel.Thread.Executor` Teardown
+        // Contract: after `shutdown()` no thread can ever run this job --
+        // `run()`/`runUntil` never execute again, and running inline on
+        // the enqueuing thread would violate the donation contract (all
+        // execution happens on the donated thread). The job is abandoned:
+        // its continuation never resumes. Loud in debug builds; the
+        // documented silent drop in release.
+        assertionFailure(
+            "Executor.Cooperative.enqueue(_:) after shutdown(): job abandoned — its continuation will never resume"
+        )
     }
 
     public func asUnownedSerialExecutor() -> UnownedSerialExecutor {
@@ -225,7 +242,12 @@ extension Executor.Cooperative {
     ///
     /// Irreversible. Dominates `stop()` — if both are in flight, the
     /// executor exits permanently. Jobs enqueued after shutdown begins
-    /// are silently dropped.
+    /// are abandoned: they are dropped without ever executing, so any
+    /// continuation awaiting them never resumes. Debug builds assert on
+    /// such an enqueue; release builds drop silently (the Cooperative
+    /// variant of the `Kernel.Thread.Executor` Teardown Contract — there
+    /// is no executor-owned thread left to drain to, and running inline
+    /// on the enqueuing thread would violate the donation contract).
     public func shutdown() {
         _shutdown.set()
         wait.wake.all()

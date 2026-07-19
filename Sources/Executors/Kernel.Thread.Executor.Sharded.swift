@@ -122,7 +122,11 @@ extension Kernel.Thread.Executor.Sharded {
     /// ## Lifecycle
     /// - Must be called exactly once before the pool is deallocated
     /// - After shutdown, the pool cannot be reused
-    /// - Jobs enqueued after shutdown begins are silently dropped
+    /// - Jobs enqueued after shutdown begins follow the
+    ///   `Kernel.Thread.Executor` Teardown Contract per shard: while a
+    ///   shard's run loop is still draining, the job executes on that
+    ///   shard's thread; once the shard's run loop has exited, the job
+    ///   runs inline on the enqueuing thread. Jobs are never dropped.
     public func shutdown() {
         for executor in executors {
             executor.shutdown()

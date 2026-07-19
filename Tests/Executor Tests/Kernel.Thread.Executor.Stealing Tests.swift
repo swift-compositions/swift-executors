@@ -5,6 +5,7 @@
 
 import Executors
 import Kernel_Test_Support
+import Synchronization
 import Testing
 
 extension Kernel.Thread.Executor.Stealing {
@@ -17,22 +18,37 @@ extension Kernel.Thread.Executor.Stealing {
 /// instead of hanging the whole test binary. `.timeLimit` alone does not
 /// bound this: it cancels the *test function's own* task, not a separately
 /// spawned unstructured `Task`, and `Task<T, Never>.value` does not observe
-/// ambient cancellation. See swift-async's
-/// `Async.Stream.Lifecycle Tests.swift` (fable-448 F-001/F-002) for the same
-/// pattern applied to a different hang.
+/// ambient cancellation.
+///
+/// Deliberately NOT a task group: a group must await ALL children before
+/// returning, and the hung operation this helper exists to bound can never
+/// be interrupted by cancellation -- a group-based race would itself hang
+/// at group exit. Racing two unstructured tasks against a one-shot
+/// continuation abandons (leaks) the loser instead of awaiting it; the
+/// leak is confined to the test process and does not block its exit.
+private final class OneShot: Sendable {
+    private let resumed = Atomic<Bool>(false)
+
+    /// `true` for exactly one caller, ever.
+    func claim() -> Bool {
+        !resumed.exchange(true, ordering: .sequentiallyConsistent)
+    }
+}
+
 private func withDeadline<T: Sendable>(
     _ deadline: Duration = .seconds(15),
     _ operation: @escaping @Sendable () async -> T
 ) async -> T? {
-    await withTaskGroup(of: T?.self) { group in
-        group.addTask { await operation() }
-        group.addTask {
-            try? await Task.sleep(for: deadline)
-            return nil
+    let gate = OneShot()
+    return await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
+        Task {
+            let value = await operation()
+            if gate.claim() { continuation.resume(returning: value) }
         }
-        let first = await group.next()!
-        group.cancelAll()
-        return first
+        Task {
+            try? await Task.sleep(for: deadline)
+            if gate.claim() { continuation.resume(returning: nil) }
+        }
     }
 }
 

@@ -3,6 +3,7 @@
 //  swift-executors
 //
 
+import Synchronization
 import Testing
 
 @testable import Executors
@@ -30,6 +31,39 @@ extension Cooperator {
     }
 
     func increment() { value += 1 }
+}
+
+/// Awaits an operation with a hard deadline, returning `nil` on timeout.
+/// A continuation race that abandons (leaks) the losing task rather than
+/// awaiting it -- an abandoned post-shutdown job can never resume, so any
+/// structured await on it (task group, async let) would hang instead of
+/// timing out. The leak is confined to the (exit-test child) process and
+/// does not block its exit. Same rationale as the helper in
+/// `Kernel.Thread.Executor.Stealing Tests.swift`.
+private final class OneShot: Sendable {
+    private let resumed = Atomic<Bool>(false)
+
+    /// `true` for exactly one caller, ever.
+    func claim() -> Bool {
+        !resumed.exchange(true, ordering: .sequentiallyConsistent)
+    }
+}
+
+private func withDeadline<T: Sendable>(
+    _ deadline: Duration = .seconds(5),
+    _ operation: @escaping @Sendable () async -> T
+) async -> T? {
+    let gate = OneShot()
+    return await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
+        Task {
+            let value = await operation()
+            if gate.claim() { continuation.resume(returning: value) }
+        }
+        Task {
+            try? await Task.sleep(for: deadline)
+            if gate.claim() { continuation.resume(returning: nil) }
+        }
+    }
 }
 
 // MARK: - Unit Tests
@@ -74,14 +108,22 @@ extension Executor.Cooperative.Test.Unit {
                 let executor = Executor.Cooperative()
                 executor.shutdown()
                 let helper = Cooperator(executor)
-                await helper.increment()
+                // The actor hop enqueues onto the shut-down executor. The
+                // debug assert must abort the child well before the
+                // deadline; if it does not (pre-fix), the abandoned job's
+                // await times out and the child exits 0 -- failing the
+                // `.failure` expectation.
+                _ = await withDeadline(.seconds(5)) { await helper.increment() }
             }
         } else {
             await #expect(processExitsWith: .success) {
                 let executor = Executor.Cooperative()
                 executor.shutdown()
                 let helper = Cooperator(executor)
-                await helper.increment()
+                // Release: the job is silently abandoned (the documented
+                // contract); the awaiting task never resumes and the
+                // deadline path exits 0.
+                _ = await withDeadline(.seconds(2)) { await helper.increment() }
             }
         }
     }
