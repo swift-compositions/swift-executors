@@ -54,6 +54,37 @@ extension Executor.Cooperative.Test.Unit {
         executor.runUntil { true }
         executor.shutdown()
     }
+
+    /// fable-448 F-002: `Cooperative.enqueue` never checked `_shutdown` at
+    /// all -- a post-shutdown job silently joined the `jobs` queue, was
+    /// never drained (the run loop had already exited and does not
+    /// restart), and its continuation never resumed, hanging any awaiter
+    /// indefinitely. Rather than trap unconditionally (a release-mode
+    /// behavior change that could break existing best-effort callers), the
+    /// fix documents the abandonment consequence and adds a debug-only
+    /// `assertionFailure` so the mistake is loud during development while
+    /// release builds keep the documented silent-abandon contract. Debug
+    /// builds must therefore crash (`.failure`); release builds must not
+    /// (`.success`) -- this is a genuine behavior fork by build
+    /// configuration, not a test artifact, so both arms are asserted here.
+    @Test
+    func `enqueue after shutdown asserts in debug builds only`() async {
+        if _isDebugAssertConfiguration() {
+            await #expect(processExitsWith: .failure) {
+                let executor = Executor.Cooperative()
+                executor.shutdown()
+                let helper = Cooperator(executor)
+                await helper.increment()
+            }
+        } else {
+            await #expect(processExitsWith: .success) {
+                let executor = Executor.Cooperative()
+                executor.shutdown()
+                let helper = Cooperator(executor)
+                await helper.increment()
+            }
+        }
+    }
 }
 
 // MARK: - Donation Contract
