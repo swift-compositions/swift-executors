@@ -51,7 +51,7 @@ extension Kernel.Thread.Executor.Test.Unit {
 
 // MARK: - Edge Case: F-001 post-shutdown enqueue vs. still-draining run loop
 
-extension Kernel.Thread.Executor.Test.EdgeCase {
+extension Kernel.Thread.Executor.Test.`Edge Case` {
     /// fable-448 F-001: pre-fix, `enqueue` ran a post-shutdown job INLINE on
     /// the calling thread the instant `_shutdown.isSet` was observed true —
     /// even while the executor's own OS thread was still draining a prior
