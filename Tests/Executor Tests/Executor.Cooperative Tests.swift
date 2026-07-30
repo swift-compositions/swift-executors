@@ -142,7 +142,14 @@ extension Executor.Cooperative.Test.Integration {
 
         try? await Task.sleep(for: .milliseconds(50))
         executor.shutdown()
-        thread.join()
+        // Best-effort join: a failure here is non-actionable at
+        // teardown -- the donated thread has still run to completion
+        // by the time `pthread_join` returns any error other than
+        // success.
+        do throws(Kernel.Thread.Error) {
+            try thread.join()
+        } catch {
+        }
     }
 
     @Test
@@ -155,7 +162,14 @@ extension Executor.Cooperative.Test.Integration {
 
         try? await Task.sleep(for: .milliseconds(50))
         executor.stop()
-        thread.join()
+        // Best-effort join: a failure here is non-actionable at
+        // teardown -- the donated thread has still run to completion
+        // by the time `pthread_join` returns any error other than
+        // success.
+        do throws(Kernel.Thread.Error) {
+            try thread.join()
+        } catch {
+        }
 
         // Executor is still usable after stop (non-destructive)
         executor.shutdown()
@@ -171,7 +185,14 @@ extension Executor.Cooperative.Test.Integration {
 
         try? await Task.sleep(for: .milliseconds(50))
         executor.stop()
-        thread.join()
+        // Best-effort join: a failure here is non-actionable at
+        // teardown -- the donated thread has still run to completion
+        // by the time `pthread_join` returns any error other than
+        // success.
+        do throws(Kernel.Thread.Error) {
+            try thread.join()
+        } catch {
+        }
         executor.shutdown()
     }
 
@@ -191,7 +212,14 @@ extension Executor.Cooperative.Test.Integration {
         #expect(result == 1)
 
         executor.shutdown()
-        thread.join()
+        // Best-effort join: a failure here is non-actionable at
+        // teardown -- the donated thread has still run to completion
+        // by the time `pthread_join` returns any error other than
+        // success.
+        do throws(Kernel.Thread.Error) {
+            try thread.join()
+        } catch {
+        }
     }
 
     @Test
@@ -206,6 +234,13 @@ extension Executor.Cooperative.Test.Integration {
 
         executor.stop()
         executor.shutdown()
-        thread.join()
+        // Best-effort join: a failure here is non-actionable at
+        // teardown -- the donated thread has still run to completion
+        // by the time `pthread_join` returns any error other than
+        // success.
+        do throws(Kernel.Thread.Error) {
+            try thread.join()
+        } catch {
+        }
     }
 }

@@ -96,7 +96,9 @@ extension Kernel.Thread.Executor.Stealing.Worker {
 
     func wake() { wait.wake.all() }
 
-    func join() { handle.take()?.join() }
+    func join() throws(Kernel.Thread.Error) {
+        try handle.take()?.join()
+    }
 }
 
 // MARK: - Job Queue

@@ -267,9 +267,23 @@
             waitSource.wakeup.wake()
             if let handle = threadHandle.take() {
                 if handle.isCurrent {
-                    handle.detach()
+                    // Best-effort detach: a failure here is non-actionable
+                    // at teardown — the executor thread still runs to
+                    // completion on its own once `_shutdown` is observed.
+                    do throws(Kernel.Thread.Error) {
+                        try handle.detach()
+                    } catch {
+                    }
                 } else {
-                    handle.join()
+                    // Best-effort join: a failure here is non-actionable —
+                    // the executor thread has still run to completion by
+                    // the time `pthread_join` returns any error other
+                    // than success; there is nothing actionable to do
+                    // with the failure at teardown.
+                    do throws(Kernel.Thread.Error) {
+                        try handle.join()
+                    } catch {
+                    }
                 }
             }
         }

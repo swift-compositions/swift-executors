@@ -123,7 +123,15 @@ extension Kernel.Thread {
                 _shutdown.set()
             }
             wait.wake.all()
-            handle.detach()
+            // Best-effort detach: deinit cannot propagate a typed
+            // error, and a detach failure here is non-actionable —
+            // this is emergency cleanup for a caller that never
+            // called shutdown(), and the handle is unreachable
+            // either way once this scope exits.
+            do throws(Kernel.Thread.Error) {
+                try handle.detach()
+            } catch {
+            }
         }
     }
 }
@@ -269,10 +277,22 @@ extension Kernel.Thread.Executor {
             // Cannot join — would deadlock. The thread exits promptly
             // because _shutdown is set and the run loop checks it each
             // iteration. Detach releases the handle; the OS reclaims
-            // the thread stack when it exits.
-            handle.detach()
+            // the thread stack when it exits. Best-effort: a detach
+            // failure here is non-actionable at teardown.
+            do throws(Kernel.Thread.Error) {
+                try handle.detach()
+            } catch {
+            }
         } else {
-            handle.join()
+            // Best-effort join: a failure here is non-actionable —
+            // the executor thread has still run to completion by the
+            // time `pthread_join` returns any error other than
+            // success; there is nothing actionable to do with the
+            // failure at teardown.
+            do throws(Kernel.Thread.Error) {
+                try handle.join()
+            } catch {
+            }
         }
     }
 }

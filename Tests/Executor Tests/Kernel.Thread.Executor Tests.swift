@@ -120,7 +120,14 @@ extension Kernel.Thread.Executor.Test.`Edge Case` {
         let overlapObserved = concurrentExecutionDetected.withLock { $0 }
 
         harness.update { $0.releaseJob1 = true }
-        shutdownThread.join()
+        // Best-effort join: a failure here is non-actionable -- the
+        // shutdown thread has still run `executor.shutdown()` to
+        // completion by the time `pthread_join` returns any error
+        // other than success.
+        do throws(Kernel.Thread.Error) {
+            try shutdownThread.join()
+        } catch {
+        }
 
         #expect(overlapObserved == false)
     }

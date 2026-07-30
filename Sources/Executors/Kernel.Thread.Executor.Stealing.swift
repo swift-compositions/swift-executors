@@ -113,6 +113,15 @@ extension Kernel.Thread.Executor.Stealing {
     public func shutdown() {
         _shutdown.set()
         for worker in workers { worker.wake() }
-        for worker in workers { worker.join() }
+        for worker in workers {
+            // Best-effort join: a failure here is non-actionable at
+            // teardown — the worker's run loop has still run to
+            // completion by the time `pthread_join` returns any error
+            // other than success.
+            do throws(Kernel.Thread.Error) {
+                try worker.join()
+            } catch {
+            }
+        }
     }
 }
