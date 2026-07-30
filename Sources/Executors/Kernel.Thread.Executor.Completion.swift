@@ -185,7 +185,15 @@
                 if let thread = threadHandle.take() {
                     _shutdown.set()
                     kernelWakeup.wake()
-                    thread.detach()
+                    // Best-effort detach: deinit cannot propagate a typed
+                    // error, and a detach failure here is non-actionable —
+                    // this is emergency cleanup for a caller that never
+                    // called shutdown(), and the handle is unreachable
+                    // either way once this scope exits.
+                    do throws(Kernel.Thread.Error) {
+                        try thread.detach()
+                    } catch {
+                    }
                 }
                 // Consume and close the kernel. Single close point.
                 if let k = _kernel.take() {
@@ -287,9 +295,23 @@
             kernelWakeup.wake()
             if let handle = threadHandle.take() {
                 if handle.isCurrent {
-                    handle.detach()
+                    // Best-effort detach: a failure here is non-actionable
+                    // at teardown — the executor thread still runs to
+                    // completion on its own once `_shutdown` is observed.
+                    do throws(Kernel.Thread.Error) {
+                        try handle.detach()
+                    } catch {
+                    }
                 } else {
-                    handle.join()
+                    // Best-effort join: a failure here is non-actionable —
+                    // the executor thread has still run to completion by
+                    // the time `pthread_join` returns any error other
+                    // than success; there is nothing actionable to do
+                    // with the failure at teardown.
+                    do throws(Kernel.Thread.Error) {
+                        try handle.join()
+                    } catch {
+                    }
                 }
             }
         }
