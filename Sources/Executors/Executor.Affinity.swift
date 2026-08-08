@@ -25,10 +25,19 @@ extension Executor {
     /// it only lets a leaf report the position it already has.
     public struct Affinity: Sendable, Equatable {
         /// This member's position among its peers, in `[0, count)`.
-        public var index: Int
+        ///
+        /// `let`, not `var`: the initializer's precondition only holds at
+        /// construction. A settable field would let a holder write an
+        /// out-of-range value after the check has already run, silently
+        /// breaking the documented invariant for every consumer indexing
+        /// on it. If a derived affinity is ever needed, add an explicit
+        /// deriving initializer/method that re-runs the precondition --
+        /// never widen this back to `var`.
+        public let index: Int
 
-        /// The total number of peers this member belongs to.
-        public var count: Int
+        /// The total number of peers this member belongs to. `let` for
+        /// the same reason as `index`.
+        public let count: Int
 
         /// Creates an affinity value.
         ///
