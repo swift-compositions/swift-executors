@@ -80,14 +80,19 @@ extension Kernel.Thread {
 
         private let mode: Mode
         private let priorityTracking: Bool
-        private let wait: Executor_Primitives.Executor.Wait.Condvar
+        // TX-N1D: `wait`, `_shutdown` and `_loopExited` are widened from
+        // `private` to `internal` so the additive `runtime` accessor
+        // (Kernel.Thread.Executor.Runtime.swift) can read existing state
+        // under the existing lock. No change in module-external
+        // visibility and no change to the Teardown Contract.
+        internal let wait: Executor_Primitives.Executor.Wait.Condvar
         private var jobs: Executor_Primitives.Executor.Job.Queue
-        private let _shutdown: Executor_Primitives.Executor.Shutdown.Flag
+        internal let _shutdown: Executor_Primitives.Executor.Shutdown.Flag
         /// `true` once `runLoop()` has taken its exit path. Guarded by
         /// `wait`; set in the same critical section that decides loop exit
         /// so `enqueue` can never observe "shutting down" while the loop
         /// might still execute jobs. See ``Teardown Contract``.
-        private var _loopExited: Bool
+        internal var _loopExited: Bool
         private var threadHandle: Kernel.Thread.Handle?
 
         /// Creates a new executor thread.

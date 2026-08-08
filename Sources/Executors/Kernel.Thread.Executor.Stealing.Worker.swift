@@ -44,12 +44,18 @@ extension Kernel.Thread.Executor.Stealing {
     package final class Worker: @unsafe @unchecked Sendable {
         let id: Index<Kernel.Thread>
         private var deque: Executor_Primitives.Executor.Job.Deque
-        private let wait: Executor.Wait.Condvar
+        // TX-N1D: widened from `private` to `internal` so the additive
+        // `runtime`/`affinities` accessors on `Stealing`
+        // (Kernel.Thread.Executor.Stealing.Runtime.swift) can read
+        // existing state under the existing lock. No change in
+        // package-external visibility (the type itself is already
+        // `package`-scoped) and no change to the Teardown Contract.
+        internal let wait: Executor.Wait.Condvar
         /// `true` once `runLoop(pool:)` has finished its post-shutdown
         /// drain. Guarded by `wait`; set in the same critical section as
         /// the empty-deque observation that ends the drain. See
         /// ``Teardown``.
-        private var loopExited: Bool
+        internal var loopExited: Bool
         private var handle: Kernel.Thread.Handle?
         /// Per-worker XorShift32 state for random victim selection.
         /// Mutated only from this worker's own runLoop (single-writer),
