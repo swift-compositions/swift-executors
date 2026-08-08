@@ -19,14 +19,23 @@ import Testing
 //
 // This file validates type availability and namespace structure.
 
-extension Executor.Wait.Event.Source {
-    @Suite
-    struct Test {
+// Mirrors the guard on Sources/Executors/Executor.Wait.Event.Source.swift:
+// Windows has no Kernel.Event.Source (epoll/kqueue vocabulary), so the type
+// under test does not exist there and this suite cannot compile. The sibling
+// Kernel.Thread.Executor.Polling Tests.swift gates the same way. Remove this
+// guard when the IOCP-backed completion-port wait primitive lands.
+#if !os(Windows)
 
-        @Test
-        func `Wait.Event namespace exists`() {
-            // Compile-time validation: the namespace enum is reachable.
-            _ = Executor.Wait.Event.self
+    extension Executor.Wait.Event.Source {
+        @Suite
+        struct Test {
+
+            @Test
+            func `Wait.Event namespace exists`() {
+                // Compile-time validation: the namespace enum is reachable.
+                _ = Executor.Wait.Event.self
+            }
         }
     }
-}
+
+#endif
