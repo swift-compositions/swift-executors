@@ -37,7 +37,11 @@ extension Kernel.Thread.Executor {
     /// // Use executor for task dispatch or actor pinning
     /// ```
     public final class Sharded: Sendable {
-        private let executors: [Kernel.Thread.Executor]
+        // TX-N1D: widened from `private` to `internal` so the additive
+        // `runtime`/`affinities` accessors (Kernel.Thread.Executor.Sharded.Runtime.swift)
+        // can read the existing shard array. No change in module-external
+        // visibility and no change to shard selection behavior.
+        internal let executors: [Kernel.Thread.Executor]
         public let count: Kernel.Thread.Count
         // WHY: `cursor` is placed in its own 128-byte-aligned heap slot via
         // WHY: CPU.Cache.Padded so that the hot write-contended atomic cannot
