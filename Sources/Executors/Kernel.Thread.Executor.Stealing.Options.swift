@@ -15,7 +15,7 @@ extension Kernel.Thread.Executor.Stealing {
         /// match the current job's priority for the duration of job
         /// execution via `pthread_override_qos_class_start_np`, then
         /// reverted at job-end. This is the M3 mechanism of the
-        /// priority-inversion policy (`Research/priority-escalation-policy.md`).
+        /// priority-inversion policy (https://github.com/swift-institute/Research/blob/main/Packages/swift-executors/priority-escalation-policy.md).
         ///
         /// **No-op on Linux, Windows, and Embedded.** These platforms
         /// lack an unprivileged QoS primitive equivalent to Darwin's

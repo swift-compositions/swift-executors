@@ -173,4 +173,4 @@ existing shutdown pattern in `IO.Event.Actor`.
 
 ## Research
 
-- [Synchronous Handoff to Actors](../../../Research/sync-handoff-to-actors.md) — Trade-off analysis for the four available mechanisms. Status: DECISION.
+- [Synchronous Handoff to Actors](https://github.com/swift-institute/Research/blob/main/Packages/swift-executors/sync-handoff-to-actors.md) — Trade-off analysis for the four available mechanisms. Status: DECISION.

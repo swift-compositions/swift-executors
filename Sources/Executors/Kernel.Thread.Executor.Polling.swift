@@ -135,7 +135,7 @@
             ///   - priorityTracking: If `true`, this executor's thread has its
             ///     QoS class bumped to match each job's priority for the
             ///     duration of job execution on Darwin (no-op on other platforms).
-            ///     See `Research/priority-escalation-policy.md`. Default `false`.
+            ///     See https://github.com/swift-institute/Research/blob/main/Packages/swift-executors/priority-escalation-policy.md. Default `false`.
             ///   - tick: Called each iteration with a `wait` thunk. Invoke `try wait()`
             ///     to either receive the events from the current cycle or propagate
             ///     the driver error via `Kernel.Event.Driver.Error`. Returns
