@@ -3,7 +3,7 @@
 //  swift-executors
 //
 //  Drain-path helper for the M3 (Darwin thread-QoS bump) mechanism
-//  per Research/priority-escalation-policy.md. Brackets job execution
+//  per https://github.com/swift-institute/Research/blob/main/Packages/swift-executors/priority-escalation-policy.md. Brackets job execution
 //  with the Darwin QoS override — `Darwin.Kernel.Thread.QoS.withOverride`,
 //  which wraps `pthread_override_qos_class_start_np` / `_end_np` at L2
 //  (swift-darwin-standard), reached here transitively via `import Kernel`.
