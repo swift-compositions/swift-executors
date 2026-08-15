@@ -94,7 +94,9 @@ extension Kernel.Thread.Executor.Stealing.Worker {
 
 extension Kernel.Thread.Executor.Stealing.Worker {
     func start(pool: Kernel.Thread.Executor.Stealing) {
-        self.handle = unsafe Kernel.Thread.trap(Ownership.Transfer.Retained<Kernel.Thread.Executor.Stealing.Worker>.Outgoing(self)) { retained in
+        self.handle = unsafe Kernel.Thread.trap(
+            Ownership.Transfer.Retained<Kernel.Thread.Executor.Stealing.Worker>.Outgoing(self)
+        ) { retained in
             let worker = retained.consume()
             worker.runLoop(pool: pool)
         }

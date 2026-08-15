@@ -161,7 +161,9 @@
                 self.maxEventsPerPoll = maxEventsPerPoll
                 self.priorityTracking = priorityTracking
                 unsafe (self.tick = tick)
-                self.threadHandle = unsafe Kernel.Thread.trap(Ownership.Transfer.Retained<Kernel.Thread.Executor.Polling>.Outgoing(self)) { retained in
+                self.threadHandle = unsafe Kernel.Thread.trap(
+                    Ownership.Transfer.Retained<Kernel.Thread.Executor.Polling>.Outgoing(self)
+                ) { retained in
                     retained.consume().runLoop()
                 }
             }
@@ -310,7 +312,8 @@
                 if _shutdown.isSet { break }
 
                 let outcome = unsafe eventBuffer.withUnsafeBufferPointer { base in
-                    unsafe tick { () throws(Kernel.Event.Driver.Error) -> UnsafeBufferPointer<Kernel.Event> in
+                    unsafe tick {
+                        () throws(Kernel.Event.Driver.Error) -> UnsafeBufferPointer<Kernel.Event> in
                         if let waitError { throw waitError }
                         return unsafe UnsafeBufferPointer<Kernel.Event>(
                             start: base.baseAddress,
