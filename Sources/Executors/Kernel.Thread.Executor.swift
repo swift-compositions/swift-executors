@@ -116,7 +116,9 @@ extension Kernel.Thread {
             self._shutdown = .init()
             self._loopExited = false
 
-            self.threadHandle = unsafe Kernel.Thread.trap(Ownership.Transfer.Retained<Kernel.Thread.Executor>.Outgoing(self)) { retained in
+            self.threadHandle = unsafe Kernel.Thread.trap(
+                Ownership.Transfer.Retained<Kernel.Thread.Executor>.Outgoing(self)
+            ) { retained in
                 let executor = retained.consume()
                 executor.runLoop()
             }

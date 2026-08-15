@@ -134,7 +134,9 @@
             private let maxCompletionsPerPoll: Int
             private let tick:
                 (
-                    () throws(Kernel.Completion.Error) -> UnsafeBufferPointer<Kernel.Completion.Event>
+                    () throws(Kernel.Completion.Error) -> UnsafeBufferPointer<
+                        Kernel.Completion.Event
+                    >
                 ) -> Outcome
 
             /// Creates a completion executor.
@@ -163,7 +165,9 @@
                 maxCompletionsPerPoll: Int = 256,
                 tick:
                     sending @escaping (
-                        () throws(Kernel.Completion.Error) -> UnsafeBufferPointer<Kernel.Completion.Event>
+                        () throws(Kernel.Completion.Error) -> UnsafeBufferPointer<
+                            Kernel.Completion.Event
+                        >
                     ) -> Outcome
             ) {
                 self.jobs = .init()
@@ -175,7 +179,9 @@
                 self._loopExited = false
                 self.maxCompletionsPerPoll = maxCompletionsPerPoll
                 unsafe (self.tick = tick)
-                self.threadHandle = unsafe Kernel.Thread.trap(Ownership.Transfer.Retained<Kernel.Thread.Executor.Completion>.Outgoing(self)) { retained in
+                self.threadHandle = unsafe Kernel.Thread.trap(
+                    Ownership.Transfer.Retained<Kernel.Thread.Executor.Completion>.Outgoing(self)
+                ) { retained in
                     retained.consume().runLoop()
                 }
             }
@@ -360,7 +366,10 @@
                 // Materialise the drained buffer as a Sendable-safe local
                 // before crossing the tick boundary, per [IMPL-091].
                 let outcome = unsafe eventBuffer.withUnsafeBufferPointer { base in
-                    unsafe tick { () throws(Kernel.Completion.Error) -> UnsafeBufferPointer<Kernel.Completion.Event> in
+                    unsafe tick {
+                        () throws(Kernel.Completion.Error) -> UnsafeBufferPointer<
+                            Kernel.Completion.Event
+                        > in
                         if let waitError { throw waitError }
                         return unsafe UnsafeBufferPointer<Kernel.Completion.Event>(
                             start: base.baseAddress,
