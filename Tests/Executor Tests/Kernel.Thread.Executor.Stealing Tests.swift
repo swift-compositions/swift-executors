@@ -1,8 +1,3 @@
-//
-//  Kernel.Thread.Executor.Stealing Tests.swift
-//  swift-executors
-//
-
 import Executors
 import Kernel_Test_Support
 import Synchronization
@@ -14,22 +9,9 @@ extension Kernel.Thread.Executor.Stealing {
     }
 }
 
-/// Awaits an operation with a hard deadline, returning `nil` on timeout
-/// instead of hanging the whole test binary. `.timeLimit` alone does not
-/// bound this: it cancels the *test function's own* task, not a separately
-/// spawned unstructured `Task`, and `Task<T, Never>.value` does not observe
-/// ambient cancellation.
-///
-/// Deliberately NOT a task group: a group must await ALL children before
-/// returning, and the hung operation this helper exists to bound can never
-/// be interrupted by cancellation -- a group-based race would itself hang
-/// at group exit. Racing two unstructured tasks against a one-shot
-/// continuation abandons (leaks) the loser instead of awaiting it; the
-/// leak is confined to the test process and does not block its exit.
 private final class OneShot: Sendable {
     private let resumed = Atomic<Bool>(false)
 
-    /// `true` for exactly one caller, ever.
     func claim() -> Bool {
         !resumed.exchange(true, ordering: .sequentiallyConsistent)
     }
@@ -59,20 +41,10 @@ extension Kernel.Thread.Executor.Stealing.Test.Unit {
         pool.shutdown()
     }
 
-    /// fable-448 F-002: pre-fix, `Stealing.enqueue` pushed onto a worker's
-    /// deque unconditionally, with no shutdown check at all. `pool.shutdown()`
-    /// joins every worker thread before returning, so by the time it returns
-    /// every worker's run loop has verifiably exited -- a job enqueued after
-    /// that point was pushed onto a dead worker's deque and NEVER dequeued
-    /// (no live worker steals from a peer once it has itself noticed
-    /// shutdown), hanging the awaiting task forever. The fix gives each
-    /// `Worker` its own `_loopExited` flag, set under its own lock at the end
-    /// of its run loop; `enqueue` now runs the job inline once that flag is
-    /// set, instead of orphaning it in an abandoned deque.
     @Test(.timeLimit(.minutes(2)))
     func `enqueue after every worker has exited runs the job instead of hanging`() async throws {
         let pool = Kernel.Thread.Executor.Stealing(.init(count: 2))
-        pool.shutdown()  // blocks until every worker thread has fully joined
+        pool.shutdown()
 
         let result = await withDeadline {
             await Task(executorPreference: pool) { 42 }.value

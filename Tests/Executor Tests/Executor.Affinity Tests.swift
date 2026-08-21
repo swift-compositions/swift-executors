@@ -1,11 +1,3 @@
-//
-//  Executor.Affinity Tests.swift
-//  swift-executors
-//
-//  TX-N1D — law/edge/near-miss fixtures for the additive
-//  `Executor.Affinity` interpretation.
-//
-
 import Kernel_Test_Support
 import Testing
 
@@ -17,8 +9,6 @@ extension Executor {
         @Suite struct `Edge Case` {}
     }
 }
-
-// MARK: - Unit Tests (positive)
 
 extension Executor.`Affinity Test`.Unit {
     @Test
@@ -51,8 +41,6 @@ extension Executor.`Affinity Test`.Unit {
         #expect(Executor.Affinity(index: 0, count: 4) != Executor.Affinity(index: 1, count: 4))
     }
 }
-
-// MARK: - Edge Cases (zero-length / boundary-capacity)
 
 extension Executor.`Affinity Test`.`Edge Case` {
     @Test

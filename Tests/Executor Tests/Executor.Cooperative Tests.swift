@@ -1,8 +1,3 @@
-//
-//  Executor.Cooperative Tests.swift
-//  swift-executors
-//
-
 import Synchronization
 import Testing
 
@@ -15,7 +10,6 @@ extension Executor.Cooperative {
     }
 }
 
-/// Actor pinned to a cooperative executor for enqueue-via-actor tests.
 private actor Cooperator {
     nonisolated let cooperative: Executor.Cooperative
     var value: Int = 0
@@ -33,17 +27,9 @@ extension Cooperator {
     func increment() { value += 1 }
 }
 
-/// Awaits an operation with a hard deadline, returning `nil` on timeout.
-/// A continuation race that abandons (leaks) the losing task rather than
-/// awaiting it -- an abandoned post-shutdown job can never resume, so any
-/// structured await on it (task group, async let) would hang instead of
-/// timing out. The leak is confined to the (exit-test child) process and
-/// does not block its exit. Same rationale as the helper in
-/// `Kernel.Thread.Executor.Stealing Tests.swift`.
 private final class OneShot: Sendable {
     private let resumed = Atomic<Bool>(false)
 
-    /// `true` for exactly one caller, ever.
     func claim() -> Bool {
         !resumed.exchange(true, ordering: .sequentiallyConsistent)
     }
@@ -66,8 +52,6 @@ private func withDeadline<T: Sendable>(
     }
 }
 
-// MARK: - Unit Tests
-
 extension Executor.Cooperative.Test.Unit {
     @Test
     func `create and shutdown`() {
@@ -89,18 +73,6 @@ extension Executor.Cooperative.Test.Unit {
         executor.shutdown()
     }
 
-    /// fable-448 F-002: `Cooperative.enqueue` never checked `_shutdown` at
-    /// all -- a post-shutdown job silently joined the `jobs` queue, was
-    /// never drained (the run loop had already exited and does not
-    /// restart), and its continuation never resumed, hanging any awaiter
-    /// indefinitely. Rather than trap unconditionally (a release-mode
-    /// behavior change that could break existing best-effort callers), the
-    /// fix documents the abandonment consequence and adds a debug-only
-    /// `assertionFailure` so the mistake is loud during development while
-    /// release builds keep the documented silent-abandon contract. Debug
-    /// builds must therefore crash (`.failure`); release builds must not
-    /// (`.success`) -- this is a genuine behavior fork by build
-    /// configuration, not a test artifact, so both arms are asserted here.
     @Test
     func `enqueue after shutdown asserts in debug builds only`() async {
         if _isDebugAssertConfiguration() {
@@ -108,11 +80,7 @@ extension Executor.Cooperative.Test.Unit {
                 let executor = Executor.Cooperative()
                 executor.shutdown()
                 let helper = Cooperator(executor)
-                // The actor hop enqueues onto the shut-down executor. The
-                // debug assert must abort the child well before the
-                // deadline; if it does not (pre-fix), the abandoned job's
-                // await times out and the child exits 0 -- failing the
-                // `.failure` expectation.
+
                 _ = await withDeadline(.seconds(5)) { await helper.increment() }
             }
         } else {
@@ -120,16 +88,12 @@ extension Executor.Cooperative.Test.Unit {
                 let executor = Executor.Cooperative()
                 executor.shutdown()
                 let helper = Cooperator(executor)
-                // Release: the job is silently abandoned (the documented
-                // contract); the awaiting task never resumes and the
-                // deadline path exits 0.
+
                 _ = await withDeadline(.seconds(2)) { await helper.increment() }
             }
         }
     }
 }
-
-// MARK: - Donation Contract
 
 extension Executor.Cooperative.Test.Integration {
     @Test
@@ -142,10 +106,7 @@ extension Executor.Cooperative.Test.Integration {
 
         try? await Task.sleep(for: .milliseconds(50))
         executor.shutdown()
-        // Best-effort join: a failure here is non-actionable at
-        // teardown -- the donated thread has still run to completion
-        // by the time `pthread_join` returns any error other than
-        // success.
+
         do throws(Kernel.Thread.Error) {
             try thread.join()
         } catch {
@@ -162,16 +123,12 @@ extension Executor.Cooperative.Test.Integration {
 
         try? await Task.sleep(for: .milliseconds(50))
         executor.stop()
-        // Best-effort join: a failure here is non-actionable at
-        // teardown -- the donated thread has still run to completion
-        // by the time `pthread_join` returns any error other than
-        // success.
+
         do throws(Kernel.Thread.Error) {
             try thread.join()
         } catch {
         }
 
-        // Executor is still usable after stop (non-destructive)
         executor.shutdown()
     }
 
@@ -185,10 +142,7 @@ extension Executor.Cooperative.Test.Integration {
 
         try? await Task.sleep(for: .milliseconds(50))
         executor.stop()
-        // Best-effort join: a failure here is non-actionable at
-        // teardown -- the donated thread has still run to completion
-        // by the time `pthread_join` returns any error other than
-        // success.
+
         do throws(Kernel.Thread.Error) {
             try thread.join()
         } catch {
@@ -212,10 +166,7 @@ extension Executor.Cooperative.Test.Integration {
         #expect(result == 1)
 
         executor.shutdown()
-        // Best-effort join: a failure here is non-actionable at
-        // teardown -- the donated thread has still run to completion
-        // by the time `pthread_join` returns any error other than
-        // success.
+
         do throws(Kernel.Thread.Error) {
             try thread.join()
         } catch {
@@ -234,10 +185,7 @@ extension Executor.Cooperative.Test.Integration {
 
         executor.stop()
         executor.shutdown()
-        // Best-effort join: a failure here is non-actionable at
-        // teardown -- the donated thread has still run to completion
-        // by the time `pthread_join` returns any error other than
-        // success.
+
         do throws(Kernel.Thread.Error) {
             try thread.join()
         } catch {

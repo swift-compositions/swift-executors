@@ -1,11 +1,3 @@
-//
-//  Executor.Runtime Tests.swift
-//  swift-executors
-//
-//  TX-N1D — law/edge/near-miss fixtures for the additive
-//  `Executor.Runtime` interpretation.
-//
-
 import Kernel_Test_Support
 import Testing
 
@@ -17,8 +9,6 @@ extension Executor {
         @Suite struct `Edge Case` {}
     }
 }
-
-// MARK: - Unit Tests (positive)
 
 extension Executor.`Runtime Test`.Unit {
     @Test
@@ -63,8 +53,6 @@ extension Executor.`Runtime Test`.Unit {
         #expect(pool.runtime == .terminated)
     }
 }
-
-// MARK: - Edge Cases (boundary / terminal-state)
 
 extension Executor.`Runtime Test`.`Edge Case` {
     @Test

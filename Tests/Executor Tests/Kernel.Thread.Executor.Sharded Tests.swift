@@ -1,8 +1,3 @@
-//
-//  Kernel.Thread.Executor.Sharded Tests.swift
-//  swift-executors
-//
-
 import Kernel_Test_Support
 import Testing
 
@@ -17,14 +12,12 @@ extension Kernel.Thread.Executor.Sharded {
     }
 }
 
-// MARK: - Unit Tests
-
 extension Kernel.Thread.Executor.Sharded.Test.Unit {
     @Test
     func `init with default options creates threads`() {
         let pool = Kernel.Thread.Executor.Sharded()
-        #expect(pool.count > 0)  // swiftlint:disable:this empty_count
-        #expect(pool.count <= 4)  // Default is min(4, processorCount)
+        #expect(pool.count > 0)
+        #expect(pool.count <= 4)
         pool.shutdown()
     }
 
@@ -57,8 +50,8 @@ extension Kernel.Thread.Executor.Sharded.Test.Unit {
     func `executor(at:) wraps around`() {
         let pool = Kernel.Thread.Executor.Sharded(.init(count: 2))
         let e0 = pool.executor(at: 0)
-        let e2 = pool.executor(at: 2)  // Should wrap to index 0
-        // Both return valid executors (may or may not be same instance)
+        let e2 = pool.executor(at: 2)
+
         _ = e0.asUnownedSerialExecutor()
         _ = e2.asUnownedSerialExecutor()
         pool.shutdown()
@@ -68,7 +61,7 @@ extension Kernel.Thread.Executor.Sharded.Test.Unit {
     func `shutdown completes gracefully`() {
         let pool = Kernel.Thread.Executor.Sharded(.init(count: 2))
         pool.shutdown()
-        // No hang = success
+
     }
 
     @Test
@@ -87,8 +80,6 @@ extension Kernel.Thread.Executor.Sharded.Test.Unit {
         pool.shutdown()
     }
 }
-
-// MARK: - Isolation Verification
 
 extension Kernel.Thread.Executor.Sharded.Test.Unit {
     @Test
@@ -119,20 +110,16 @@ extension Kernel.Thread.Executor.Sharded.Test.Unit {
     }
 }
 
-// MARK: - Integration Tests
-
 extension Kernel.Thread.Executor.Sharded.Test.Integration {
     @Test
     func `round-robin distributes across executors`() {
         let pool = Kernel.Thread.Executor.Sharded(.init(count: 2))
 
-        // Get several executors via next()
         let e1 = pool.next()
         let e2 = pool.next()
         let e3 = pool.next()
         let e4 = pool.next()
 
-        // Should cycle: e1 != e2, e1 == e3, e2 == e4
         let ref1 = ObjectIdentifier(e1)
         let ref2 = ObjectIdentifier(e2)
         let ref3 = ObjectIdentifier(e3)
@@ -152,7 +139,6 @@ extension Kernel.Thread.Executor.Sharded.Test.Integration {
         let e1 = pool.executor(at: 0)
         let e2 = pool.executor(at: 1)
 
-        // Use Sendable return values instead of captured mutable state
         let result1 = await Task(executorPreference: e1) { 1 }.value
         let result2 = await Task(executorPreference: e2) { 2 }.value
 

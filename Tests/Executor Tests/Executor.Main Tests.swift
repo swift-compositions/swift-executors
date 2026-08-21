@@ -1,8 +1,3 @@
-//
-//  Executor.Main Tests.swift
-//  swift-executors
-//
-
 import Executors
 import Testing
 
