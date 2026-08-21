@@ -311,7 +311,7 @@
                 }
                 if _shutdown.isSet { break }
 
-                let outcome = unsafe eventBuffer.withUnsafeBufferPointer { base in
+                let outcome = eventBuffer.withUnsafeBufferPointer { base in
                     unsafe tick {
                         () throws(Kernel.Event.Driver.Error) -> UnsafeBufferPointer<Kernel.Event> in
                         if let waitError { throw waitError }

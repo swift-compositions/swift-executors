@@ -340,7 +340,7 @@
                 // phase cycle against the owned value, then put it back. The
                 // run loop is single-threaded so no concurrent access occurs
                 // while the slot is empty.
-                var k = _kernel.take()!
+                let k = _kernel.take()!
                 eventBuffer.removeAll(keepingCapacity: true)
                 let waitError: Kernel.Completion.Error?
                 do throws(Kernel.Completion.Error) {
@@ -365,7 +365,7 @@
 
                 // Materialise the drained buffer as a Sendable-safe local
                 // before crossing the tick boundary, per [IMPL-091].
-                let outcome = unsafe eventBuffer.withUnsafeBufferPointer { base in
+                let outcome = eventBuffer.withUnsafeBufferPointer { base in
                     unsafe tick {
                         () throws(Kernel.Completion.Error) -> UnsafeBufferPointer<
                             Kernel.Completion.Event
