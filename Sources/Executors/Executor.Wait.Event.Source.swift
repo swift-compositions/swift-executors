@@ -1,6 +1,6 @@
 #if !os(Windows)
 
-    public import Executor_Primitives
+    public import Executor
     public import Kernel
 
     extension Executor.Wait.Event {

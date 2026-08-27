@@ -15,29 +15,29 @@ let package = Package(
         .library(name: "Executors", targets: ["Executors"])
     ],
     dependencies: [
-        .package(url: "https://github.com/swift-foundations/swift-kernel.git", branch: "main"),
+        .package(url: "https://github.com/swift-compositions/swift-kernel.git", branch: "main"),
         .package(
-            url: "https://github.com/swift-foundations/swift-synchronizers.git",
+            url: "https://github.com/swift-compositions/swift-synchronizers.git",
             branch: "main"
         ),
         .package(
-            url: "https://github.com/swift-primitives/swift-executor-primitives.git",
+            url: "https://github.com/swift-molecules/swift-executor.git",
             branch: "main"
         ),
         .package(
-            url: "https://github.com/swift-primitives/swift-property-primitives.git",
+            url: "https://github.com/swift-molecules/swift-property.git",
             branch: "main"
         ),
         .package(
-            url: "https://github.com/swift-primitives/swift-ordinal-primitives.git",
+            url: "https://github.com/swift-molecules/swift-ordinal.git",
             branch: "main"
         ),
         .package(
-            url: "https://github.com/swift-primitives/swift-index-primitives.git",
+            url: "https://github.com/swift-molecules/swift-index.git",
             branch: "main"
         ),
         .package(
-            url: "https://github.com/swift-primitives/swift-cpu-primitives.git",
+            url: "https://github.com/swift-molecules/swift-cpu.git",
             branch: "main"
         ),
     ],
@@ -47,11 +47,11 @@ let package = Package(
             dependencies: [
                 .product(name: "Kernel", package: "swift-kernel"),
                 .product(name: "Synchronizer Blocking", package: "swift-synchronizers"),
-                .product(name: "Executor Primitives", package: "swift-executor-primitives"),
-                .product(name: "Property Primitives", package: "swift-property-primitives"),
-                .product(name: "Ordinal Primitives", package: "swift-ordinal-primitives"),
-                .product(name: "Index Primitives", package: "swift-index-primitives"),
-                .product(name: "CPU Primitives", package: "swift-cpu-primitives"),
+                .product(name: "Executor", package: "swift-executor"),
+                .product(name: "Property", package: "swift-property"),
+                .product(name: "Ordinal", package: "swift-ordinal"),
+                .product(name: "Index", package: "swift-index"),
+                .product(name: "CPU", package: "swift-cpu"),
             ]
         ),
         .testTarget(

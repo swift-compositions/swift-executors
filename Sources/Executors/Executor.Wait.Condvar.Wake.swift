@@ -1,4 +1,4 @@
-public import Property_Primitives
+public import Property
 internal import Synchronizer_Blocking
 
 extension Executor.Wait.Condvar {

@@ -5,12 +5,12 @@
         @safe
         public final class Completion: SerialExecutor, TaskExecutor, @unsafe @unchecked Sendable {
 
-            private var jobs: Executor_Primitives.Executor.Job.Queue
-            private var drainBuffer: Executor_Primitives.Executor.Job.Queue
+            private var jobs: Executor.Executor.Job.Queue
+            private var drainBuffer: Executor.Executor.Job.Queue
             private let queueLock: Kernel.Thread.Mutex
             private var _kernel: Kernel.Completion?
             private let kernelWakeup: Kernel.Wakeup.Channel
-            private let _shutdown: Executor_Primitives.Executor.Shutdown.Flag
+            private let _shutdown: Executor.Executor.Shutdown.Flag
 
             private var _loopExited: Bool
             private var threadHandle: Kernel.Thread.Handle?

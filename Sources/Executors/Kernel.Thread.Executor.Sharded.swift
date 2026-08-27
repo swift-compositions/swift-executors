@@ -1,6 +1,6 @@
-import CPU_Primitives
-import Index_Primitives
-import Ordinal_Primitives
+import CPU
+import Index
+import Ordinal
 import Synchronization
 
 extension Kernel.Thread.Executor {

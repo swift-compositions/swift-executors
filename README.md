@@ -2,7 +2,7 @@
 
 ![Development Status](https://img.shields.io/badge/status-active--development-blue.svg)
 
-Executor composition for Swift. Provides sharded executor pools for parallel work dispatch using `Kernel.Thread.Executor` instances from swift-kernel. Layer 3 (Foundations) of the Swift Institute five-layer architecture.
+Executor composition for Swift. Provides sharded executor pools for parallel work dispatch using `Kernel.Thread.Executor` instances from swift-kernel. Layer 4 (Compositions) of the Swift Institute four-layer architecture.
 
 ---
 
@@ -21,7 +21,7 @@ Executor composition for Swift. Provides sharded executor pools for parallel wor
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/swift-foundations/swift-executors.git", branch: "main")
+    .package(url: "https://github.com/swift-compositions/swift-executors.git", branch: "main")
 ]
 ```
 
@@ -72,7 +72,7 @@ let executor = pool.next()
 
 ## Architecture
 
-`swift-executors` sits at Layer 3 (Foundations), depending on `swift-kernel` for `Kernel.Thread.Executor`.
+`swift-executors` sits at Layer 4 (Compositions), depending on `swift-kernel` for `Kernel.Thread.Executor`.
 
 ```
 swift-executors     <-- Executor composition (this package)
@@ -88,11 +88,11 @@ swift-kernel-primitives  <-- Syscall vocabulary
 
 ### Dependencies
 
-- [swift-kernel](https://github.com/swift-foundations/swift-kernel): Serial executors backed by dedicated OS threads
+- [swift-kernel](https://github.com/swift-compositions/swift-kernel): Serial executors backed by dedicated OS threads
 
 ### Used By
 
-- [swift-io](https://github.com/swift-foundations/swift-io): Async I/O executor with typed throws
+- [swift-io](https://github.com/swift-compositions/swift-io): Async I/O executor with typed throws
 
 ---
 

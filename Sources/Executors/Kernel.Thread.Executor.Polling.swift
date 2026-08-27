@@ -5,11 +5,11 @@
         @safe
         public final class Polling: SerialExecutor, TaskExecutor, @unsafe @unchecked Sendable {
 
-            private var jobs: Executor_Primitives.Executor.Job.Queue
-            private var drainBuffer: Executor_Primitives.Executor.Job.Queue
+            private var jobs: Executor.Executor.Job.Queue
+            private var drainBuffer: Executor.Executor.Job.Queue
             private let queueLock: Kernel.Thread.Mutex
-            private var waitSource: Executor_Primitives.Executor.Wait.Event.Source
-            private let _shutdown: Executor_Primitives.Executor.Shutdown.Flag
+            private var waitSource: Executor.Executor.Wait.Event.Source
+            private let _shutdown: Executor.Executor.Shutdown.Flag
 
             private var _loopExited: Bool
             private var threadHandle: Kernel.Thread.Handle?

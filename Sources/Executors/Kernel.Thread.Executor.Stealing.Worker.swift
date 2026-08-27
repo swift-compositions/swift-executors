@@ -1,11 +1,11 @@
-import Index_Primitives
-import Ordinal_Primitives
+import Index
+import Ordinal
 
 extension Kernel.Thread.Executor.Stealing {
 
     package final class Worker: @unsafe @unchecked Sendable {
         let id: Index<Kernel.Thread>
-        private var deque: Executor_Primitives.Executor.Job.Deque
+        private var deque: Executor.Executor.Job.Deque
 
         internal let wait: Executor.Wait.Condvar
 

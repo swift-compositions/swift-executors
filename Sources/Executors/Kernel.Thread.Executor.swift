@@ -5,9 +5,9 @@ extension Kernel.Thread {
         private let mode: Mode
         private let priorityTracking: Bool
 
-        internal let wait: Executor_Primitives.Executor.Wait.Condvar
-        private var jobs: Executor_Primitives.Executor.Job.Queue
-        internal let _shutdown: Executor_Primitives.Executor.Shutdown.Flag
+        internal let wait: Executor.Executor.Wait.Condvar
+        private var jobs: Executor.Executor.Job.Queue
+        internal let _shutdown: Executor.Executor.Shutdown.Flag
 
         internal var _loopExited: Bool
         private var threadHandle: Kernel.Thread.Handle?
