@@ -55,11 +55,12 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "Executor Tests",
+            name: "Executors Tests",
             dependencies: [
                 "Executors",
                 .product(name: "Kernel Test Support", package: "swift-kernel"),
-            ]
+            ],
+            path: "Tests/Executor Tests"
         ),
     ],
     swiftLanguageModes: [.v6]
