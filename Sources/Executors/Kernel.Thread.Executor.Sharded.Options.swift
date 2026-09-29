@@ -14,7 +14,7 @@ extension Kernel.Thread.Executor.Sharded {
                 count
                 ?? Kernel.Thread.Count.min(
                     Self.defaultCount,
-                    System.Processor.count.retag(Kernel.Thread.self)
+                    Kernel.Thread.Count(System.processorCount)
                 )
             self.priorityTracking = priorityTracking
         }

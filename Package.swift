@@ -21,25 +21,26 @@ let package = Package(
             branch: "main"
         ),
         .package(
-            url: "https://github.com/swift-molecules/swift-executor.git",
+            url: "https://github.com/swift-atoms/swift-executor.git",
             branch: "main"
         ),
         .package(
-            url: "https://github.com/swift-molecules/swift-property.git",
+            url: "https://github.com/swift-atoms/swift-property.git",
             branch: "main"
         ),
         .package(
-            url: "https://github.com/swift-molecules/swift-ordinal.git",
+            url: "https://github.com/swift-atoms/swift-ordinal.git",
             branch: "main"
         ),
         .package(
-            url: "https://github.com/swift-molecules/swift-index.git",
+            url: "https://github.com/swift-atoms/swift-index.git",
             branch: "main"
         ),
         .package(
-            url: "https://github.com/swift-molecules/swift-cpu.git",
+            url: "https://github.com/swift-atoms/swift-cpu.git",
             branch: "main"
         ),
+        .package(url: "https://github.com/swift-atoms/swift-system.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -52,6 +53,7 @@ let package = Package(
                 .product(name: "Ordinal", package: "swift-ordinal"),
                 .product(name: "Index", package: "swift-index"),
                 .product(name: "CPU", package: "swift-cpu"),
+                .product(name: "System", package: "swift-system"),
             ]
         ),
         .testTarget(
