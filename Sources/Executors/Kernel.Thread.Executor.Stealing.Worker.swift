@@ -5,7 +5,7 @@ extension Kernel.Thread.Executor.Stealing {
 
     package final class Worker: @unsafe @unchecked Sendable {
         let id: Index<Kernel.Thread>
-        private var deque: Executor.Executor.Job.Deque
+        private var deque: Executor::Executor.Job.Deque
 
         internal let wait: Executor.Wait.Condvar
 

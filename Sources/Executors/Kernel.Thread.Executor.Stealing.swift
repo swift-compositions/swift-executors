@@ -6,7 +6,7 @@ extension Kernel.Thread.Executor {
 
     public final class Stealing: TaskExecutor, @unsafe @unchecked Sendable {
         internal let workers: [Worker]
-        internal let _shutdown: Executor.Executor.Shutdown.Flag
+        internal let _shutdown: Executor::Executor.Shutdown.Flag
         internal let priorityTracking: Bool
         private let cursor: Atomic<Index<Kernel.Thread>>
         public let count: Kernel.Thread.Count
