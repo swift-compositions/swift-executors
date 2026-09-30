@@ -15,6 +15,7 @@ let package = Package(
         .library(name: "Executors", targets: ["Executors"])
     ],
     dependencies: [
+        .package(url: "https://github.com/swift-atoms/swift-tagged.git", branch: "main"),
         .package(url: "https://github.com/swift-compositions/swift-kernel.git", branch: "main"),
         .package(
             url: "https://github.com/swift-compositions/swift-synchronizers.git",
@@ -46,6 +47,7 @@ let package = Package(
         .target(
             name: "Executors",
             dependencies: [
+                .product(name: "Tagged", package: "swift-tagged"),
                 .product(name: "Kernel", package: "swift-kernel"),
                 .product(name: "Synchronizer Blocking", package: "swift-synchronizers"),
                 .product(name: "Executor", package: "swift-executor"),
