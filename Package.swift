@@ -55,7 +55,7 @@ let package = Package(
                 .product(name: "Ordinal", package: "swift-ordinal"),
                 .product(name: "Index", package: "swift-index"),
                 .product(name: "CPU", package: "swift-cpu"),
-                .product(name: "System", package: "swift-system"),
+                .product(name: "System Primitives", package: "swift-system"),
             ]
         ),
         .testTarget(
