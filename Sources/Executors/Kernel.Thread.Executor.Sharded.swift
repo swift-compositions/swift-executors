@@ -1,8 +1,8 @@
-import Tagged
 import CPU
 import Index
 import Ordinal
 import Synchronization
+import Tagged
 
 extension Kernel.Thread.Executor {
 

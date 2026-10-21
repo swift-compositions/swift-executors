@@ -1,7 +1,7 @@
-import Tagged
 import Index
 import Ordinal
 import Synchronization
+import Tagged
 
 extension Kernel.Thread.Executor {
 

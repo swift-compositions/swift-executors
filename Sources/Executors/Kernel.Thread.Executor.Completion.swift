@@ -114,6 +114,9 @@
 
     extension Kernel.Thread.Executor.Completion {
 
+        // The storage is non-nil from init until shutdown; the force unwrap is the only
+        // borrow projection available for a ~Copyable payload in a coroutine accessor.
+        // swift-format-ignore: NeverForceUnwrap
         public var kernel: Kernel.Completion {
             _read { yield _kernel! }
             _modify { yield &_kernel! }
@@ -152,7 +155,9 @@
                 drainJobs()
                 if _shutdown.isSet { break }
 
-                let k = _kernel.take()!
+                guard let k = _kernel.take() else {
+                    preconditionFailure("Kernel completion storage is non-nil while the run loop is active")
+                }
                 eventBuffer.removeAll(keepingCapacity: true)
                 let waitError: Kernel.Completion.Error?
                 do throws(Kernel.Completion.Error) {
