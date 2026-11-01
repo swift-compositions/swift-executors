@@ -14,7 +14,7 @@ extension Kernel.Thread.Executor.Stealing {
                 count
                 ?? Kernel.Thread.Count.min(
                     Self.defaultCount,
-                    Kernel.Thread.Count(System.processorCount)
+                    Kernel.Thread.Count(Int(CPU.Logical.count))
                 )
             self.priorityTracking = priorityTracking
         }

@@ -41,7 +41,6 @@ let package = Package(
             url: "https://github.com/swift-atoms/swift-cpu.git",
             branch: "main"
         ),
-        .package(url: "https://github.com/swift-atoms/swift-system.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -55,7 +54,6 @@ let package = Package(
                 .product(name: "Ordinal", package: "swift-ordinal"),
                 .product(name: "Index", package: "swift-index"),
                 .product(name: "CPU", package: "swift-cpu"),
-                .product(name: "System Primitives", package: "swift-system"),
             ]
         ),
         .testTarget(
