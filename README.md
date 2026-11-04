@@ -1,101 +1,21 @@
 # swift-executors
 
-![Development Status](https://img.shields.io/badge/status-active--development-blue.svg)
+Use this package when Swift concurrency work must run on threads you control: an actor pinned to one dedicated thread, tasks spread over a fixed set of threads, an I/O loop that runs jobs between kernel event waits, or a loop that runs on a thread you already have. Start from `Kernel.Thread.Executor` for one thread, `Kernel.Thread.Executor.Sharded` or `Kernel.Thread.Executor.Stealing` for several, `Kernel.Thread.Executor.Polling` or `Kernel.Thread.Executor.Completion` for an event loop, and `Executor.Cooperative` to donate the current thread. If you are building your own executor and need only the job queues and shutdown flag, use swift-executor. To dispatch plain closures to a pool of threads, use swift-threads.
 
-Executor composition for Swift. Provides sharded executor pools for parallel work dispatch using `Kernel.Thread.Executor` instances from swift-kernel. Layer 4 (Compositions) of the Swift Institute four-layer architecture.
+## Laws
 
----
-
-## Key Features
-
-- **Sharded executor pools** -- Round-robin distribution across N serial executors
-- **Typed throws** -- No `any Error` at the API surface
-- **Foundation-free** -- No Foundation module dependencies
-- **Swift 6 strict concurrency** -- Full `Sendable` compliance
-
----
-
-## Installation
-
-### Package.swift dependency
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/swift-compositions/swift-executors.git", branch: "main")
-]
-```
-
-> Pre-1.0: no version tags yet. APIs may change; pin a commit for reproducible builds.
-
-### Target dependency
-
-```swift
-.target(
-    name: "YourTarget",
-    dependencies: [
-        .product(name: "Executors", package: "swift-executors")
-    ]
-)
-```
-
-### Requirements
-
-- Swift 6.2+
-- macOS 26.0+ / iOS 26.0+ / tvOS 26.0+ / watchOS 26.0+
-- Linux (Ubuntu 22.04+)
-- Windows (Swift 6.2+)
-
----
-
-## Quick Start
-
-```swift
-import Executors
-
-let pool = Kernel.Thread.Executor.Sharded(.init(count: 4))
-defer { pool.shutdown() }
-
-let executor = pool.next()
-// Use executor for task dispatch or actor pinning
-```
-
----
-
-## Key Types
-
-| Type | Purpose |
-|------|---------|
-| `Kernel.Thread.Executor.Sharded` | Sharded pool of serial executors with round-robin routing |
-| `Kernel.Thread.Executor.Sharded.Options` | Configuration for thread count |
-
----
-
-## Architecture
-
-`swift-executors` sits at Layer 4 (Compositions), depending on `swift-kernel` for `Kernel.Thread.Executor`.
-
-```
-swift-executors     <-- Executor composition (this package)
-     |
-swift-kernel        <-- Serial executor, OS thread primitives
-     |
-swift-kernel-primitives  <-- Syscall vocabulary
-```
-
----
-
-## Related Packages
-
-### Dependencies
-
-- [swift-kernel](https://github.com/swift-compositions/swift-kernel): Serial executors backed by dedicated OS threads
-
-### Used By
-
-- [swift-io](https://github.com/swift-compositions/swift-io): Async I/O executor with typed throws
-
----
-
-## License
-
-Apache 2.0 -- See [LICENSE](LICENSE.md) for details.
+- Each `Kernel.Thread` executor starts its thread when it is created. `Executor.Cooperative` has no thread of its own and runs jobs only while some thread is inside `Executor.Cooperative.run()` or `Executor.Cooperative.runUntil(_:)`.
+- `Kernel.Thread.Executor` runs jobs one at a time in the order they were enqueued.
+- After `shutdown()` is called, an executor with its own thread still runs every job already queued, and jobs enqueued while it drains, before its thread exits. A job enqueued after the thread has exited runs at once on the caller's thread, so it never hangs.
+- `shutdown()` waits for the executor's thread to finish, except when called from that thread, where it detaches instead. Calling `Kernel.Thread.Executor.shutdown()` a second time traps, and so does a second `Kernel.Thread.Executor.Sharded.shutdown()`.
+- `runtime` is `.running` until shutdown starts, `.draining` while queued jobs still run, and `.terminated` once the thread has exited. A sharded pool is `.running` while any shard is.
+- `Kernel.Thread.Executor.Sharded` and `Kernel.Thread.Executor.Stealing` default to four threads, or fewer when the machine has fewer logical CPUs.
+- `Kernel.Thread.Executor.Sharded.next()` hands out the shards in turn. `Kernel.Thread.Executor.Sharded.executor(at:)` wraps the index around the shard count.
+- `Kernel.Thread.Executor.Stealing` is a task executor only, so it can't back an actor. It deals new jobs to its workers in turn. A worker runs its own newest job first, and an idle worker steals the oldest job of another worker, picked at random.
+- Each `Kernel.Thread.Executor.Stealing` worker holds at most 1024 queued jobs. A job dealt to a full worker is dropped and never runs.
+- `Kernel.Thread.Executor.Polling` and `Kernel.Thread.Executor.Completion` repeat one cycle: run all queued jobs, wait on the kernel with no timeout, then call `tick` with the events. Enqueuing a job wakes the wait, so `tick` can receive an empty batch. A wait failure is thrown from the closure passed to `tick`, and the loop continues. Returning `.halt` from `tick` ends the loop, and jobs are then handled as after `shutdown()`.
+- `maxEventsPerPoll` caps the events one wait returns. `maxCompletionsPerPoll` only reserves buffer space, and one tick receives every completion that was drained.
+- With `priorityTracking`, each job runs under a thread QoS override that matches its task priority. This applies on Apple platforms only, and has no effect elsewhere.
+- `Executor.Cooperative.runUntil(_:)` checks its condition before each batch of jobs. While the queue is empty it sleeps without checking, so the condition is seen again only after a job arrives or `stop()` is called. Calling it from inside a job it is running traps.
+- `Executor.Cooperative.stop()` makes the current run return after its batch and is forgotten by the next run. A `stop()` before any run has no effect. `Executor.Cooperative.shutdown()` is permanent: runs return at once, jobs still queued never run, and a job enqueued afterwards is abandoned and raises an assertion in debug builds.
+- On Apple platforms `Executor.Main.shared` hands every job to the main dispatch queue. Elsewhere it queues jobs like `Executor.Cooperative`, and they run only while a thread is inside `Executor.Main.run()` or `Executor.Main.runUntil(_:)`.
