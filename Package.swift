@@ -59,7 +59,7 @@ let package = Package(
         .testTarget(
             name: "Executors Tests",
             dependencies: [
-                "Executors",
+                .target(name: "Executors"),
                 .product(name: "Kernel Test Support", package: "swift-kernel"),
             ],
             path: "Tests/Executor Tests"
