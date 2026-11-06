@@ -1,7 +1,9 @@
 import Executors
 import Testing
 
-extension Executor.Main {
+enum `Executor.Main Tests` {}
+
+extension `Executor.Main Tests` {
     @Suite
     struct Test {
         @Test
