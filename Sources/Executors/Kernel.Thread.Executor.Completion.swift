@@ -114,8 +114,6 @@
 
     extension Kernel.Thread.Executor.Completion {
 
-        // The storage is non-nil from init until shutdown; the force unwrap is the only
-        // borrow projection available for a ~Copyable payload in a coroutine accessor.
         // swift-format-ignore: NeverForceUnwrap
         public var kernel: Kernel.Completion {
             _read { yield _kernel! }

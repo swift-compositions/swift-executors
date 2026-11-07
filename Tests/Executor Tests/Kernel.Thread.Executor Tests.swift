@@ -16,9 +16,9 @@ extension Kernel.Thread.Executor.Test.Unit {
     @Test
     func `executor conforms to SerialExecutor`() {
         let executor = Kernel.Thread.Executor()
-        let unowned = executor.asUnownedSerialExecutor()
+        let unowned = unsafe executor.asUnownedSerialExecutor()
 
-        _ = unowned
+        _ = unsafe unowned
         executor.shutdown()
     }
 

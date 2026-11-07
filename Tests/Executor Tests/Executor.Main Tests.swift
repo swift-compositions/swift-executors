@@ -9,7 +9,7 @@ extension `Executor.Main Tests` {
         @Test
         func `Main.shared returns an identity`() {
             let main = Executor.Main.shared
-            _ = main.asUnownedSerialExecutor()
+            _ = unsafe main.asUnownedSerialExecutor()
         }
     }
 }

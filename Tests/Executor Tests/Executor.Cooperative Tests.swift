@@ -21,7 +21,7 @@ private actor Cooperator {
 
 extension Cooperator {
     nonisolated var unownedExecutor: UnownedSerialExecutor {
-        cooperative.asUnownedSerialExecutor()
+        unsafe cooperative.asUnownedSerialExecutor()
     }
 
     func increment() { value += 1 }

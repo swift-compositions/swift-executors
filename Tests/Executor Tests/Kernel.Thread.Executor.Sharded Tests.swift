@@ -32,7 +32,7 @@ extension Kernel.Thread.Executor.Sharded.Test.Unit {
     func `next returns an executor`() {
         let pool = Kernel.Thread.Executor.Sharded(.init(count: 2))
         let executor = pool.next()
-        _ = executor.asUnownedSerialExecutor()
+        _ = unsafe executor.asUnownedSerialExecutor()
         pool.shutdown()
     }
 
@@ -41,8 +41,8 @@ extension Kernel.Thread.Executor.Sharded.Test.Unit {
         let pool = Kernel.Thread.Executor.Sharded(.init(count: 2))
         let e0 = pool.executor(at: 0)
         let e1 = pool.executor(at: 1)
-        _ = e0.asUnownedSerialExecutor()
-        _ = e1.asUnownedSerialExecutor()
+        _ = unsafe e0.asUnownedSerialExecutor()
+        _ = unsafe e1.asUnownedSerialExecutor()
         pool.shutdown()
     }
 
@@ -52,8 +52,8 @@ extension Kernel.Thread.Executor.Sharded.Test.Unit {
         let e0 = pool.executor(at: 0)
         let e2 = pool.executor(at: 2)
 
-        _ = e0.asUnownedSerialExecutor()
-        _ = e2.asUnownedSerialExecutor()
+        _ = unsafe e0.asUnownedSerialExecutor()
+        _ = unsafe e2.asUnownedSerialExecutor()
         pool.shutdown()
     }
 
