@@ -136,6 +136,21 @@ extension Kernel.Thread.Executor.Test.Integration {
             return Int(count)
         }
 
+        /// The threads before, while `count` values `make` gives are held, and after they are let go and
+        /// their threads have had up to five seconds to end.
+        static func threads(holding count: Int, _ make: () -> AnyObject) async throws -> (before: Int, held: Int, after: Int) {
+            let before = threads()
+            var made = (0..<count).map { _ in make() }
+            let held = threads()
+            made.removeAll()
+            var after = threads()
+            for _ in 0..<100 where after > before + 32 {
+                try await Task.sleep(for: .milliseconds(50))
+                after = threads()
+            }
+            return (before, held, after)
+        }
+
         @Test
         func `an executor's thread ends when its last reference goes, without shutdown`() async throws {
             let before = Self.threads()

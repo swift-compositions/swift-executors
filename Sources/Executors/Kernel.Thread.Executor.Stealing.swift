@@ -6,22 +6,30 @@ import Tagged
 extension Kernel.Thread.Executor {
 
     public final class Stealing: TaskExecutor, @unsafe @unchecked Sendable {
-        internal let workers: [Worker]
-        internal let _shutdown: Executor::Executor.Shutdown.Flag
-        internal let priorityTracking: Bool
+        let crew: Crew
         private let cursor: Atomic<Index<Kernel.Thread>>
         public let count: Kernel.Thread.Count
 
         public init(_ options: Options = .init()) {
             self.count = options.count
-            self._shutdown = .init()
-            self.priorityTracking = options.priorityTracking
             self.cursor = .init(.zero)
-            self.workers = Array(count: options.count) { position in
-                Worker(id: position)
+            let crew = Crew(
+                workers: Array(count: options.count) { position in Worker(id: position) },
+                count: options.count,
+                priorityTracking: options.priorityTracking
+            )
+            self.crew = crew
+            crew.pool = self
+            for worker in crew.workers {
+                worker.start(crew: crew)
             }
-            for worker in workers {
-                worker.start(pool: self)
+        }
+
+        /// Ends the workers' threads once their queues are empty, without waiting for them.
+        deinit {
+            crew.end()
+            for worker in crew.workers {
+                worker.detach()
             }
         }
     }
@@ -33,26 +41,29 @@ extension Kernel.Thread.Executor.Stealing {
     }
 
     public func enqueue(_ job: UnownedJob) {
-        if workers[cursor.advance(within: count)].enqueue(job) { return }
-
-        unsafe Kernel.Thread.Executor.runJob(
-            job,
-            onTask: asUnownedTaskExecutor(),
-            priorityTracking: priorityTracking
-        )
+        if crew.workers[cursor.advance(within: count)].enqueue(job) { return }
+        run(job)
     }
 
     public func asUnownedTaskExecutor() -> UnownedTaskExecutor {
         unsafe UnownedTaskExecutor(ordinary: self)
+    }
+
+    /// Runs a job here, on this executor.
+    func run(_ job: UnownedJob) {
+        unsafe Kernel.Thread.Executor.runJob(
+            job,
+            onTask: asUnownedTaskExecutor(),
+            priorityTracking: crew.priorityTracking
+        )
     }
 }
 
 extension Kernel.Thread.Executor.Stealing {
 
     public func shutdown() {
-        _shutdown.set()
-        for worker in workers { worker.wake() }
-        for worker in workers {
+        crew.end()
+        for worker in crew.workers {
 
             do throws(Kernel.Thread.Error) {
                 try worker.join()

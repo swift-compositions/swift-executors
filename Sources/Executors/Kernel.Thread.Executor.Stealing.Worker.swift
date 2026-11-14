@@ -37,12 +37,14 @@ extension Kernel.Thread.Executor.Stealing.Worker {
 }
 
 extension Kernel.Thread.Executor.Stealing.Worker {
-    func start(pool: Kernel.Thread.Executor.Stealing) {
+    /// Starts this worker's thread, which holds the crew, never the pool.
+    func start(crew: Kernel.Thread.Executor.Stealing.Crew) {
+        let id = self.id
         self.handle = unsafe Kernel.Thread.trap(
-            Ownership.Transfer.Retained<Kernel.Thread.Executor.Stealing.Worker>.Outgoing(self)
+            Ownership.Transfer.Retained<Kernel.Thread.Executor.Stealing.Crew>.Outgoing(crew)
         ) { retained in
-            let worker = retained.consume()
-            worker.runLoop(pool: pool)
+            let crew = retained.consume()
+            crew.workers[id].runLoop(crew: crew)
         }
     }
 
@@ -50,6 +52,14 @@ extension Kernel.Thread.Executor.Stealing.Worker {
 
     func join() throws(Kernel.Thread.Error) {
         try handle.take()?.join()
+    }
+
+    /// Lets the thread end by itself, unjoined.
+    func detach() {
+        do throws(Kernel.Thread.Error) {
+            try handle.take()?.detach()
+        } catch {
+        }
     }
 }
 
@@ -71,20 +81,16 @@ extension Kernel.Thread.Executor.Stealing.Worker {
 }
 
 extension Kernel.Thread.Executor.Stealing.Worker {
-    private func runLoop(pool: Kernel.Thread.Executor.Stealing) {
-        while !pool._shutdown.isSet {
+    fileprivate func runLoop(crew: Kernel.Thread.Executor.Stealing.Crew) {
+        while !crew.shutdown.isSet {
 
             if let job = wait.withLock({ deque.take() }) {
-                unsafe Kernel.Thread.Executor.runJob(
-                    job,
-                    onTask: pool.asUnownedTaskExecutor(),
-                    priorityTracking: pool.priorityTracking
-                )
+                crew.run(job)
                 continue
             }
 
             var stolen: UnownedJob? = nil
-            let count = pool.count
+            let count = crew.count
             if count > .one {
                 let limit = count.subtract.saturating(.one)
                 var attempts = Index<Kernel.Thread>.zero
@@ -93,7 +99,7 @@ extension Kernel.Thread.Executor.Stealing.Worker {
                     if victim == id {
                         victim = (victim + .one) % count
                     }
-                    if let job = pool.workers[victim].trySteal() {
+                    if let job = crew.workers[victim].trySteal() {
                         stolen = job
                         break
                     }
@@ -101,16 +107,12 @@ extension Kernel.Thread.Executor.Stealing.Worker {
                 }
             }
             if let job = stolen {
-                unsafe Kernel.Thread.Executor.runJob(
-                    job,
-                    onTask: pool.asUnownedTaskExecutor(),
-                    priorityTracking: pool.priorityTracking
-                )
+                crew.run(job)
                 continue
             }
 
             wait.withLock {
-                if !pool._shutdown.isSet && deque.isEmpty {
+                if !crew.shutdown.isSet && deque.isEmpty {
                     wait.wait()
                 }
             }
@@ -123,11 +125,7 @@ extension Kernel.Thread.Executor.Stealing.Worker {
                 return nil
             }
             guard let job else { return }
-            unsafe Kernel.Thread.Executor.runJob(
-                job,
-                onTask: pool.asUnownedTaskExecutor(),
-                priorityTracking: pool.priorityTracking
-            )
+            crew.run(job)
         }
     }
 }

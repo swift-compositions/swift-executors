@@ -68,3 +68,16 @@ extension Kernel.Thread.Executor.Stealing.Test.Unit {
         pool.shutdown()
     }
 }
+
+#if canImport(Darwin)
+    extension Kernel.Thread.Executor.Stealing.Test.Unit {
+        @Test
+        func `a stealing pool's threads end when its last reference goes, without shutdown`() async throws {
+            let counted = try await Kernel.Thread.Executor.Test.Integration.threads(holding: 25) {
+                Kernel.Thread.Executor.Stealing(.init(count: 4))
+            }
+            #expect(counted.held >= counted.before + 75, "\(counted)")
+            #expect(counted.after <= counted.before + 32, "\(counted)")
+        }
+    }
+#endif

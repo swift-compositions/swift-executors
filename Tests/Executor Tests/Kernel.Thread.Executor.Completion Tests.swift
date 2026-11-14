@@ -103,4 +103,17 @@ import Testing
         }
     }
 
+    #if canImport(Darwin)
+        extension Kernel.Thread.Executor.Completion.Test.Unit {
+            @Test
+            func `a completion executor's thread ends when its last reference goes, without shutdown`() async throws {
+                let counted = try await Kernel.Thread.Executor.Test.Integration.threads(holding: 100) {
+                    Kernel.Thread.Executor.Completion(kernel: Kernel.Thread.Executor.Completion.Test.syntheticKernel()) { _ in .continue }
+                }
+                #expect(counted.held >= counted.before + 75, "\(counted)")
+                #expect(counted.after <= counted.before + 32, "\(counted)")
+            }
+        }
+    #endif
+
 #endif
