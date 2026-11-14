@@ -1,3 +1,4 @@
+import Dispatch
 import Kernel_Test_Support
 import Testing
 
@@ -117,17 +118,19 @@ import Testing
         }
     }
 
-    #if canImport(Darwin)
-        extension Kernel.Thread.Executor.Polling.Test.Unit {
-            @Test
-            func `a polling executor's thread ends when its last reference goes, without shutdown`() async throws {
-                let counted = try await Kernel.Thread.Executor.Test.Integration.threads(holding: 100) {
-                    Kernel.Thread.Executor.Polling(source: Kernel.Thread.Executor.Polling.Test.syntheticSource()) { _ in .continue }
-                }
-                #expect(counted.held >= counted.before + 75, "\(counted)")
-                #expect(counted.after <= counted.before + 32, "\(counted)")
+    extension Kernel.Thread.Executor.Polling.Test.Unit {
+        @Test
+        func `each polling executor's thread lives while it is held and ends when its last reference goes, without shutdown`() async {
+            let ended = DispatchSemaphore(value: 0)
+            var held = (0..<50).map { _ in
+                Kernel.Thread.Executor.Polling(source: Kernel.Thread.Executor.Polling.Test.syntheticSource()) { _ in .continue }
             }
+            for executor in held {
+                #expect(await Kernel.Thread.Executor.Test.Ending.plant(on: executor, ended))
+            }
+            #expect(Kernel.Thread.Executor.Test.Ending.count(ended, 1, within: 0) == 0)
+            held.removeAll()
+            #expect(Kernel.Thread.Executor.Test.Ending.count(ended, 50, within: 10) == 50)
         }
-    #endif
-
+    }
 #endif

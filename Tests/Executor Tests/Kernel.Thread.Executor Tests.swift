@@ -121,53 +121,82 @@ extension Kernel.Thread.Executor.Test.Integration {
     }
 }
 
-#if canImport(Darwin)
-    import Darwin
+#if !os(Windows)
+    #if canImport(Darwin)
+        import Darwin
+    #elseif canImport(Glibc)
+        import Glibc
+    #elseif canImport(Musl)
+        import Musl
+    #endif
+    import Dispatch
+
+    extension Kernel.Thread.Executor.Test {
+        /// A token a thread holds from when it is planted until the thread ends: the thread's own exit releases
+        /// it, through a thread-specific value's destructor, and its release signals `ended`.
+        final class Ending: Sendable {
+            let ended: DispatchSemaphore
+
+            init(_ ended: DispatchSemaphore) {
+                self.ended = ended
+            }
+
+            deinit {
+                ended.signal()
+            }
+        }
+    }
+
+    extension Kernel.Thread.Executor.Test.Ending {
+        /// The key whose destructor releases a thread's token as the thread ends.
+        static let key: pthread_key_t = {
+            var key = pthread_key_t()
+            #if canImport(Darwin)
+                _ = unsafe pthread_key_create(&key) { token in
+                    unsafe Unmanaged<Kernel.Thread.Executor.Test.Ending>.fromOpaque(token).release()
+                }
+            #else
+                _ = unsafe pthread_key_create(&key) { token in
+                    guard let token = unsafe token else { return }
+                    unsafe Unmanaged<Kernel.Thread.Executor.Test.Ending>.fromOpaque(token).release()
+                }
+            #endif
+            return key
+        }()
+
+        /// Leaves a token on the calling thread, signalling `ended` when the thread ends; false when the thread
+        /// holds one already.
+        static func plant(_ ended: DispatchSemaphore) -> Bool {
+            guard unsafe pthread_getspecific(key) == nil else { return false }
+            _ = unsafe pthread_setspecific(key, Unmanaged.passRetained(Self(ended)).toOpaque())
+            return true
+        }
+
+        /// A token left on the thread a task on `executor` runs on.
+        static func plant(on executor: any TaskExecutor, _ ended: DispatchSemaphore) async -> Bool {
+            await Task(executorPreference: executor) { plant(ended) }.value
+        }
+
+        /// How many of `count` threads ended within `seconds`, all told.
+        static func count(_ ended: DispatchSemaphore, _ count: Int, within seconds: Double) -> Int {
+            let deadline = DispatchTime.now() + seconds
+            var seen = 0
+            while seen < count, ended.wait(timeout: deadline) == .success { seen += 1 }
+            return seen
+        }
+    }
 
     extension Kernel.Thread.Executor.Test.Integration {
-        /// The threads of this process, as the kernel counts them.
-        static func threads() -> Int {
-            var list: thread_act_array_t?
-            var count: mach_msg_type_number_t = 0
-            guard unsafe task_threads(mach_task_self_, &list, &count) == KERN_SUCCESS, let list = unsafe list else { return 0 }
-            unsafe UnsafeBufferPointer(start: list, count: Int(count)).forEach { _ = mach_port_deallocate(mach_task_self_, $0) }
-            let size = vm_size_t(MemoryLayout<thread_t>.stride * Int(count))
-            _ = unsafe vm_deallocate(mach_task_self_, vm_address_t(bitPattern: list), size)
-            return Int(count)
-        }
-
-        /// The threads before, while `count` values `make` gives are held, and after they are let go and
-        /// their threads have had up to five seconds to end.
-        static func threads(holding count: Int, _ make: () -> AnyObject) async throws -> (before: Int, held: Int, after: Int) {
-            let before = threads()
-            var made = (0..<count).map { _ in make() }
-            let held = threads()
-            made.removeAll()
-            var after = threads()
-            for _ in 0..<100 where after > before + 32 {
-                try await Task.sleep(for: .milliseconds(50))
-                after = threads()
-            }
-            return (before, held, after)
-        }
-
         @Test
-        func `an executor's thread ends when its last reference goes, without shutdown`() async throws {
-            let before = Self.threads()
-            for _ in 0..<200 {
-                let executor = Kernel.Thread.Executor()
-                await Task(executorPreference: executor) {}.value
+        func `each executor's thread lives while it is held and ends when its last reference goes, without shutdown`() async {
+            let ended = DispatchSemaphore(value: 0)
+            var held = (0..<50).map { _ in Kernel.Thread.Executor() }
+            for executor in held {
+                #expect(await Kernel.Thread.Executor.Test.Ending.plant(on: executor, ended))
             }
-            let made = (0..<200).map { _ in Kernel.Thread.Executor() }
-            #expect(Self.threads() >= before + 150)
-            _ = consume made
-            var after = Self.threads()
-            for _ in 0..<100 where after > before + 64 {
-                try await Task.sleep(for: .milliseconds(50))
-                after = Self.threads()
-            }
-            #expect(before > 0)
-            #expect(after <= before + 64, "\(before) threads before, \(after) after 200 executors were made and let go")
+            #expect(Kernel.Thread.Executor.Test.Ending.count(ended, 1, within: 0) == 0)
+            held.removeAll()
+            #expect(Kernel.Thread.Executor.Test.Ending.count(ended, 50, within: 10) == 50)
         }
     }
 #endif

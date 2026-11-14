@@ -69,15 +69,42 @@ extension Kernel.Thread.Executor.Stealing.Test.Unit {
     }
 }
 
-#if canImport(Darwin)
+#if !os(Windows)
+    import Dispatch
+
     extension Kernel.Thread.Executor.Stealing.Test.Unit {
-        @Test
-        func `a stealing pool's threads end when its last reference goes, without shutdown`() async throws {
-            let counted = try await Kernel.Thread.Executor.Test.Integration.threads(holding: 25) {
-                Kernel.Thread.Executor.Stealing(.init(count: 4))
+        /// Leaves a token on each of a pool's `count` threads: `count` tasks that each wait until all have
+        /// arrived, so each holds a thread of its own while it plants.
+        static func plant(on pool: Kernel.Thread.Executor.Stealing, count: Int, _ ended: DispatchSemaphore) async -> Int {
+            let arrived = DispatchSemaphore(value: 0)
+            let gate = DispatchSemaphore(value: 0)
+            return await withTaskGroup(of: Bool.self) { group in
+                for _ in 0..<count {
+                    group.addTask(executorPreference: pool) {
+                        let planted = Kernel.Thread.Executor.Test.Ending.plant(ended)
+                        arrived.signal()
+                        return planted && gate.wait(timeout: .now() + 10) == .success
+                    }
+                }
+                if Kernel.Thread.Executor.Test.Ending.count(arrived, count, within: 10) == count {
+                    for _ in 0..<count { gate.signal() }
+                }
+                var planted = 0
+                for await done in group where done { planted += 1 }
+                return planted
             }
-            #expect(counted.held >= counted.before + 75, "\(counted)")
-            #expect(counted.after <= counted.before + 32, "\(counted)")
+        }
+
+        @Test
+        func `each stealing pool's threads live while it is held and end when its last reference goes, without shutdown`() async {
+            let ended = DispatchSemaphore(value: 0)
+            var held = (0..<10).map { _ in Kernel.Thread.Executor.Stealing(.init(count: 4)) }
+            for pool in held {
+                #expect(await Self.plant(on: pool, count: 4, ended) == 4)
+            }
+            #expect(Kernel.Thread.Executor.Test.Ending.count(ended, 1, within: 0) == 0)
+            held.removeAll()
+            #expect(Kernel.Thread.Executor.Test.Ending.count(ended, 40, within: 10) == 40)
         }
     }
 #endif
