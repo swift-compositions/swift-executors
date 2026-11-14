@@ -120,3 +120,39 @@ extension Kernel.Thread.Executor.Test.Integration {
         executor.shutdown()
     }
 }
+
+#if canImport(Darwin)
+    import Darwin
+
+    extension Kernel.Thread.Executor.Test.Integration {
+        /// The threads of this process, as the kernel counts them.
+        static func threads() -> Int {
+            var list: thread_act_array_t?
+            var count: mach_msg_type_number_t = 0
+            guard unsafe task_threads(mach_task_self_, &list, &count) == KERN_SUCCESS, let list = unsafe list else { return 0 }
+            unsafe UnsafeBufferPointer(start: list, count: Int(count)).forEach { _ = mach_port_deallocate(mach_task_self_, $0) }
+            let size = vm_size_t(MemoryLayout<thread_t>.stride * Int(count))
+            _ = unsafe vm_deallocate(mach_task_self_, vm_address_t(bitPattern: list), size)
+            return Int(count)
+        }
+
+        @Test
+        func `an executor's thread ends when its last reference goes, without shutdown`() async throws {
+            let before = Self.threads()
+            for _ in 0..<200 {
+                let executor = Kernel.Thread.Executor()
+                await Task(executorPreference: executor) {}.value
+            }
+            let made = (0..<200).map { _ in Kernel.Thread.Executor() }
+            #expect(Self.threads() >= before + 150)
+            _ = consume made
+            var after = Self.threads()
+            for _ in 0..<100 where after > before + 64 {
+                try await Task.sleep(for: .milliseconds(50))
+                after = Self.threads()
+            }
+            #expect(before > 0)
+            #expect(after <= before + 64, "\(before) threads before, \(after) after 200 executors were made and let go")
+        }
+    }
+#endif

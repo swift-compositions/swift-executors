@@ -2,38 +2,25 @@ extension Kernel.Thread {
 
     public final class Executor: SerialExecutor, TaskExecutor, @unsafe @unchecked Sendable {
 
-        private let mode: Mode
-        private let priorityTracking: Bool
-
-        internal let wait: Executor::Executor.Wait.Condvar
-        private var jobs: Executor::Executor.Job.Queue
-        internal let _shutdown: Executor::Executor.Shutdown.Flag
-
-        internal var _loopExited: Bool
+        let loop: Loop
         private var threadHandle: Kernel.Thread.Handle?
 
         public init(mode: Mode = .serial, priorityTracking: Bool = false) {
-            self.mode = mode
-            self.priorityTracking = priorityTracking
-            self.wait = .init()
-            self.jobs = .init()
-            self._shutdown = .init()
-            self._loopExited = false
-
+            let loop = Loop(mode: mode, priorityTracking: priorityTracking)
+            self.loop = loop
+            self.threadHandle = nil
+            loop.executor = self
             self.threadHandle = unsafe Kernel.Thread.trap(
-                Ownership.Transfer.Retained<Kernel.Thread.Executor>.Outgoing(self)
+                Ownership.Transfer.Retained<Kernel.Thread.Executor.Loop>.Outgoing(loop)
             ) { retained in
-                let executor = retained.consume()
-                executor.runLoop()
+                retained.consume().run()
             }
         }
 
+        /// Ends the thread once its queue is empty, without waiting for it.
         deinit {
             guard let handle = threadHandle.take() else { return }
-            wait.withLock {
-                _shutdown.set()
-            }
-            wait.wake.all()
+            loop.end()
 
             do throws(Kernel.Thread.Error) {
                 try handle.detach()
@@ -46,34 +33,39 @@ extension Kernel.Thread {
 extension Kernel.Thread.Executor {
     public func enqueue(_ job: UnownedJob) {
 
-        let runInline: Bool = wait.withLock {
-            guard !_loopExited else { return true }
-            jobs.enqueue(job)
+        let runInline: Bool = loop.wait.withLock {
+            guard !loop.exited else { return true }
+            loop.jobs.enqueue(job)
             return false
         }
         if runInline {
-            switch mode {
-            case .serial:
-                unsafe Self.runJob(
-                    job,
-                    onSerial: asUnownedSerialExecutor(),
-                    priorityTracking: priorityTracking
-                )
-
-            case .task:
-                unsafe Self.runJob(
-                    job,
-                    onTask: asUnownedTaskExecutor(),
-                    priorityTracking: priorityTracking
-                )
-            }
+            run(job)
         } else {
-            wait.wake()
+            loop.wait.wake()
         }
     }
 
     public func asUnownedSerialExecutor() -> UnownedSerialExecutor {
         unsafe UnownedSerialExecutor(ordinary: self)
+    }
+
+    /// Runs a job here, as this executor's mode says.
+    func run(_ job: UnownedJob) {
+        switch loop.mode {
+        case .serial:
+            unsafe Self.runJob(
+                job,
+                onSerial: asUnownedSerialExecutor(),
+                priorityTracking: loop.priorityTracking
+            )
+
+        case .task:
+            unsafe Self.runJob(
+                job,
+                onTask: asUnownedTaskExecutor(),
+                priorityTracking: loop.priorityTracking
+            )
+        }
     }
 }
 
@@ -99,40 +91,6 @@ extension Kernel.Thread.Executor {
 }
 
 extension Kernel.Thread.Executor {
-    fileprivate func runLoop() {
-        while true {
-            let job: UnownedJob? = wait.withLock {
-                while jobs.isEmpty && !_shutdown.isSet {
-                    wait.wait()
-                }
-                guard !_shutdown.isSet || !jobs.isEmpty else {
-
-                    _loopExited = true
-                    return nil
-                }
-                return jobs.dequeue()
-            }
-            guard let job else { return }
-            switch mode {
-            case .serial:
-                unsafe Self.runJob(
-                    job,
-                    onSerial: asUnownedSerialExecutor(),
-                    priorityTracking: priorityTracking
-                )
-
-            case .task:
-                unsafe Self.runJob(
-                    job,
-                    onTask: asUnownedTaskExecutor(),
-                    priorityTracking: priorityTracking
-                )
-            }
-        }
-    }
-}
-
-extension Kernel.Thread.Executor {
 
     public func shutdown() {
         guard let handle = threadHandle.take() else {
@@ -141,10 +99,7 @@ extension Kernel.Thread.Executor {
             )
         }
 
-        wait.withLock {
-            _shutdown.set()
-        }
-        wait.wake.all()
+        loop.end()
 
         if handle.isCurrent {
 
@@ -208,9 +163,9 @@ extension Kernel.Thread.Executor {
 extension Kernel.Thread.Executor {
 
     public var runtime: Executor.Runtime {
-        wait.withLock {
-            if _loopExited { return .terminated }
-            if _shutdown.isSet { return .draining }
+        loop.wait.withLock {
+            if loop.exited { return .terminated }
+            if loop.shutdown.isSet { return .draining }
             return .running
         }
     }
