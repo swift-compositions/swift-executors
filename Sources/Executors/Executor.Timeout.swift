@@ -12,16 +12,38 @@
         /// What `operation` gives, or nil at the first of: `limit` passing on the wall clock, or the cancellation of
         /// the waiting task.
         ///
-        /// The operation runs as a task of its own, isolated as it is declared and preferring `executor` when one is
-        /// given, so a call that blocks its thread blocks that one. It is not stopped when the wait ends without it:
-        /// what it gives later is dropped. `expired` is called once when the limit ends the wait, never when the
-        /// answer or a cancellation does. A limit of no time or less ends the wait at once: `expired` is called and
-        /// the operation never starts. The answer is handed over once, so it need not be `Sendable`.
+        /// The operation runs as a task of its own, isolated as it is declared. It is not stopped when the wait ends
+        /// without it: what it gives later is dropped. `expired` is called once when the limit ends the wait, never
+        /// when the answer or a cancellation does. A limit of no time or less ends the wait at once: `expired` is
+        /// called and the operation never starts. The answer is handed over once, so it need not be `Sendable`.
         public static func answer<Answer>(
             within limit: Duration,
-            on executor: (any TaskExecutor)? = nil,
             expired: (@Sendable () -> Void)? = nil,
             _ operation: @escaping @Sendable @isolated(any) () async -> sending Answer
+        ) async -> sending Answer? {
+            await wait(within: limit, expired: expired) { ending in
+                Task { _ = ending.end(with: await operation()) }
+            }
+        }
+
+        /// `answer(within:expired:_:)` with the operation's task preferring `executor`, so a call that blocks its
+        /// thread blocks one of that executor's.
+        public static func answer<Answer>(
+            within limit: Duration,
+            on executor: some TaskExecutor,
+            expired: (@Sendable () -> Void)? = nil,
+            _ operation: @escaping @Sendable @isolated(any) () async -> sending Answer
+        ) async -> sending Answer? {
+            await wait(within: limit, expired: expired) { ending in
+                Task(executorPreference: executor) { _ = ending.end(with: await operation()) }
+            }
+        }
+
+        /// The wait both `answer` forms share: `start` begins the operation's task, which ends `ending` with its answer.
+        static func wait<Answer>(
+            within limit: Duration,
+            expired: (@Sendable () -> Void)?,
+            start: (Ending<Answer>) -> Void
         ) async -> sending Answer? {
             guard limit > .zero else {
                 expired?()
@@ -32,9 +54,7 @@
                 if ending.end(with: nil) { expired?() }
             }
             defer { timer.cancel() }
-            Task(executorPreference: executor) {
-                _ = ending.end(with: await operation())
-            }
+            start(ending)
             return await withTaskCancellationHandler {
                 await withCheckedContinuation { ending.begin($0) }
             } onCancel: {
