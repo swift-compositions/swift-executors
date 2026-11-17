@@ -21,7 +21,7 @@
             within limit: Duration,
             on executor: (any TaskExecutor)? = nil,
             expired: (@Sendable () -> Void)? = nil,
-            _ operation: sending @escaping @isolated(any) () async -> sending Answer
+            _ operation: @escaping @Sendable @isolated(any) () async -> sending Answer
         ) async -> sending Answer? {
             guard limit > .zero else {
                 expired?()
