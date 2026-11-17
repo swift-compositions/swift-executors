@@ -16,13 +16,13 @@
         /// given, so a call that blocks its thread blocks that one. It is not stopped when the wait ends without it:
         /// what it gives later is dropped. `expired` is called once when the limit ends the wait, never when the
         /// answer or a cancellation does. A limit of no time or less ends the wait at once: `expired` is called and
-        /// the operation never starts.
-        public static func answer<Answer: Sendable>(
+        /// the operation never starts. The answer is handed over once, so it need not be `Sendable`.
+        public static func answer<Answer>(
             within limit: Duration,
             on executor: (any TaskExecutor)? = nil,
             expired: (@Sendable () -> Void)? = nil,
-            _ operation: sending @escaping @isolated(any) () async -> Answer
-        ) async -> Answer? {
+            _ operation: sending @escaping @isolated(any) () async -> sending Answer
+        ) async -> sending Answer? {
             guard limit > .zero else {
                 expired?()
                 return nil

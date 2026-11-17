@@ -23,6 +23,17 @@ extension `Executor.Timeout Tests` {
             #expect(expired.total == 0)
         }
 
+        /// A class that is not `Sendable`.
+        final class Unshared {
+            var value = 7
+        }
+
+        @Test
+        func `an answer that is not Sendable is handed over whole`() async {
+            let answer = await Executor.Timeout.answer(within: .seconds(10)) { Unshared() }
+            #expect(answer?.value == 7)
+        }
+
         @Test
         func `past the limit the wait gives nil and calls expired once, while the operation is left behind`() async {
             let expired = Count()
